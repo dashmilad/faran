@@ -73,7 +73,7 @@ function App() {
           </div>
           <div className="two-col">
             <label>تاریخ<input value={header.date} onChange={e => setHeader({ ...header, date: e.target.value })}/></label>
-            <label>تاریخ وارزیابی<input value={header.reviewDate} onChange={e => setHeader({ ...header, reviewDate: e.target.value })}/></label>
+            <label>تاریخ واریز<input value={header.reviewDate} onChange={e => setHeader({ ...header, reviewDate: e.target.value })}/></label>
           </div>
         </section>
         <section>
@@ -127,7 +127,7 @@ function App() {
                 <td>{i + 1}</td><td>{r.date}</td><td>{r.place}</td><td>{r.service}</td><td>{r.invoice}</td><td className="description">{r.description}</td><td>{formatMoney(r.amount)}</td>
               </tr>)}
               <tr className="total-row"><td colSpan="6">جمع کل هزینه :</td><td>{new Intl.NumberFormat('fa-IR').format(total)}</td></tr>
-              <tr className="review-row"><td colSpan="7">تاریخ وارزیابی: {header.reviewDate}</td></tr>
+              <tr className="review-row"><td colSpan="7">تاریخ واریز: {header.reviewDate}</td></tr>
             </tbody>
           </table>
 
