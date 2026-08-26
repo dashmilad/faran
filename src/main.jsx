@@ -4,18 +4,12 @@ import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import './styles.css';
 
-/* =========================================================
-   لوگوی فاران
-   فایل باید در:
-   public/logo.png
-   باشد
-   ========================================================= */
-
-const LOGO_SRC = `${import.meta.env.BASE_URL}logo.png`;
-
-/* =========================================================
-   داده‌های اولیه
-   ========================================================= */
+/*
+ * لوگوی فاران
+ * فایل:
+ * public/logo.png
+ */
+const LOGO_SRC = '/logo.png';
 
 const emptyRow = () => ({
   date: '',
@@ -28,17 +22,12 @@ const emptyRow = () => ({
 
 const initialRows = Array.from({ length: 8 }, emptyRow);
 
-/* =========================================================
-   توابع کمکی
-   ========================================================= */
-
 function numberValue(value) {
   return Number(String(value ?? '').replace(/,/g, '')) || 0;
 }
 
 function extractExpenseTitle(description) {
   const text = String(description || '').trim();
-
   if (!text) return '';
 
   const keywords = [
@@ -60,10 +49,7 @@ function extractExpenseTitle(description) {
     'تپسی'
   ];
 
-  const found = keywords.find(keyword =>
-    text.includes(keyword)
-  );
-
+  const found = keywords.find(keyword => text.includes(keyword));
   return found || text;
 }
 
@@ -76,10 +62,6 @@ function chunkArray(array, size) {
 
   return result;
 }
-
-/* =========================================================
-   App
-   ========================================================= */
 
 function App() {
   const [header, setHeader] = useState({
@@ -114,27 +96,21 @@ function App() {
   });
 
   const [busy, setBusy] = useState(false);
-  const [noInvoiceBusy, setNoInvoiceBusy] =
-    useState(false);
-
-  /* =========================================================
-     جمع کل فرم اصلی
-     ========================================================= */
+  const [noInvoiceBusy, setNoInvoiceBusy] = useState(false);
 
   const total = useMemo(
     () =>
       rows.reduce(
-        (sum, row) =>
-          sum + numberValue(row.amount),
+        (sum, row) => sum + numberValue(row.amount),
         0
       ),
     [rows]
   );
 
-  /* =========================================================
-     ساخت اطلاعات فرم بدون فاکتور از فرم اصلی
-     ========================================================= */
-
+  /*
+   * ساخت خودکار هزینه‌های بدون فاکتور
+   * از روی ردیف‌های فرم اصلی
+   */
   const derivedNoInvoiceItems = useMemo(() => {
     return rows
       .filter(
@@ -143,56 +119,32 @@ function App() {
           numberValue(row.amount) > 0
       )
       .map(row => ({
-        product: extractExpenseTitle(
-          row.description
-        ),
+        product: extractExpenseTitle(row.description),
         provider: row.place || '',
         qty: '1',
-        unitAmount: String(
-          numberValue(row.amount)
-        ),
-        total: String(
-          numberValue(row.amount)
-        ),
+        unitAmount: String(numberValue(row.amount)),
+        total: String(numberValue(row.amount)),
         date: row.date || header.date
       }));
   }, [rows, header.date]);
 
-  /* =========================================================
-     هر فرم بدون فاکتور حداکثر 3 ردیف
-     ========================================================= */
-
+  /*
+   * هر فرم بدون فاکتور حداکثر ۳ ردیف دارد.
+   */
   const noInvoicePages = useMemo(
-    () =>
-      chunkArray(
-        derivedNoInvoiceItems,
-        3
-      ),
+    () => chunkArray(derivedNoInvoiceItems, 3),
     [derivedNoInvoiceItems]
   );
 
   const printableNoInvoicePages =
-    noInvoicePages.length > 0
-      ? noInvoicePages
-      : [[]];
-
-  /* =========================================================
-     جمع فرم بدون فاکتور
-     ========================================================= */
+    noInvoicePages.length > 0 ? noInvoicePages : [[]];
 
   const noInvoiceTotal = items =>
     items.reduce(
       (sum, item) =>
-        sum +
-        numberValue(
-          item.total || item.unitAmount
-        ),
+        sum + numberValue(item.total || item.unitAmount),
       0
     );
-
-  /* =========================================================
-     فرمت مبلغ
-     ========================================================= */
 
   const formatMoney = value =>
     numberValue(value)
@@ -201,15 +153,7 @@ function App() {
         )
       : '';
 
-  /* =========================================================
-     بروزرسانی ردیف
-     ========================================================= */
-
-  const updateRow = (
-    index,
-    key,
-    value
-  ) => {
+  const updateRow = (index, key, value) => {
     setRows(prev =>
       prev.map((row, i) =>
         i === index
@@ -222,10 +166,10 @@ function App() {
     );
   };
 
-  /* =========================================================
-     تغییر تاریخ فرم اصلی
-     ========================================================= */
-
+  /*
+   * تغییر تاریخ فرم اصلی
+   * تاریخ ردیف‌ها و فرم بدون فاکتور نیز هماهنگ می‌شود.
+   */
   const updateHeaderDate = value => {
     setHeader(prev => ({
       ...prev,
@@ -245,10 +189,6 @@ function App() {
     }));
   };
 
-  /* =========================================================
-     تغییر تاریخ فرم بدون فاکتور
-     ========================================================= */
-
   const updateNoInvoiceDate = value => {
     setNoInvoice(prev => ({
       ...prev,
@@ -256,15 +196,7 @@ function App() {
     }));
   };
 
-  /* =========================================================
-     بروزرسانی آیتم فرم بدون فاکتور
-     ========================================================= */
-
-  const updateNoInvoiceItem = (
-    index,
-    key,
-    value
-  ) => {
+  const updateNoInvoiceItem = (index, key, value) => {
     setNoInvoiceItems(prev =>
       prev.map((item, i) => {
         if (i !== index) return item;
@@ -274,14 +206,9 @@ function App() {
           [key]: value
         };
 
-        if (
-          key === 'unitAmount' ||
-          key === 'qty'
-        ) {
+        if (key === 'unitAmount' || key === 'qty') {
           next.total = String(
-            numberValue(
-              next.unitAmount
-            ) *
+            numberValue(next.unitAmount) *
               (numberValue(next.qty) || 1)
           );
         }
@@ -291,10 +218,9 @@ function App() {
     );
   };
 
-  /* =========================================================
-     سینک فرم بدون فاکتور با فرم اصلی
-     ========================================================= */
-
+  /*
+   * همگام‌سازی فرم بدون فاکتور با فرم اصلی
+   */
   const syncNoInvoiceToMain = () => {
     const items = rows
       .filter(
@@ -303,17 +229,11 @@ function App() {
           numberValue(row.amount) > 0
       )
       .map(row => ({
-        product: extractExpenseTitle(
-          row.description
-        ),
+        product: extractExpenseTitle(row.description),
         provider: row.place || '',
         qty: '1',
-        unitAmount: String(
-          numberValue(row.amount)
-        ),
-        total: String(
-          numberValue(row.amount)
-        ),
+        unitAmount: String(numberValue(row.amount)),
+        total: String(numberValue(row.amount)),
         date: row.date || header.date
       }));
 
@@ -325,73 +245,41 @@ function App() {
     }));
   };
 
-  /* =========================================================
-     چاپ کلی
-     
-     نکته مهم:
-     قبل از چاپ فقط فرم‌هایی که باید چاپ شوند نمایش داده
-     می‌شوند. این کار از ایجاد صفحات خالی جلوگیری می‌کند.
-     ========================================================= */
-
+  /*
+   * چاپ کلی
+   *
+   * ابتدا اطلاعات فرم بدون فاکتور Sync می‌شود.
+   * سپس بعد از رندر React چاپ انجام می‌شود.
+   */
   const printAllForms = () => {
     syncNoInvoiceToMain();
 
     setTimeout(() => {
-      document.body.classList.add(
-        'printing-all'
-      );
-
       window.print();
-
-      setTimeout(() => {
-        document.body.classList.remove(
-          'printing-all'
-        );
-      }, 500);
-    }, 200);
+    }, 300);
   };
-
-  /* =========================================================
-     چاپ فقط فرم اصلی
-     ========================================================= */
 
   const printMainForm = () => {
-    document.body.classList.add(
-      'printing-main'
-    );
-
-    setTimeout(() => {
-      window.print();
-
-      setTimeout(() => {
-        document.body.classList.remove(
-          'printing-main'
-        );
-      }, 500);
-    }, 100);
+    window.print();
   };
 
-  /* =========================================================
-     PDF فرم اصلی
-     ========================================================= */
-
+  /*
+   * PDF فرم اصلی
+   * بدون تغییر
+   */
   const exportPdf = async () => {
-    const node =
-      document.getElementById(
-        'print-area'
-      );
+    const node = document.getElementById('print-area');
 
     if (!node) return;
 
     setBusy(true);
 
     try {
-      const canvas =
-        await html2canvas(node, {
-          scale: 2.5,
-          backgroundColor: '#fff',
-          useCORS: true
-        });
+      const canvas = await html2canvas(node, {
+        scale: 2.5,
+        backgroundColor: '#fff',
+        useCORS: true
+      });
 
       const pdf = new jsPDF({
         orientation: 'landscape',
@@ -405,20 +293,15 @@ function App() {
       const margin = 6;
 
       const ratio = Math.min(
-        (pageW - margin * 2) /
-          canvas.width,
-        (pageH - margin * 2) /
-          canvas.height
+        (pageW - margin * 2) / canvas.width,
+        (pageH - margin * 2) / canvas.height
       );
 
       const w = canvas.width * ratio;
       const h = canvas.height * ratio;
 
       pdf.addImage(
-        canvas.toDataURL(
-          'image/jpeg',
-          0.95
-        ),
+        canvas.toDataURL('image/jpeg', 0.95),
         'JPEG',
         (pageW - w) / 2,
         (pageH - h) / 2,
@@ -429,150 +312,105 @@ function App() {
       );
 
       pdf.save(
-        `فرم-تنخواه-${
-          header.date || 'بدون-تاریخ'
-        }.pdf`
+        `فرم-تنخواه-${header.date || 'بدون-تاریخ'}.pdf`
       );
     } finally {
       setBusy(false);
     }
   };
 
-  /* =========================================================
-     چاپ فرم بدون فاکتور
-     ========================================================= */
-
   const printNoInvoiceForm = () => {
     syncNoInvoiceToMain();
 
     setTimeout(() => {
-      document.body.classList.add(
-        'printing-no-invoice'
-      );
-
       window.print();
-
-      setTimeout(() => {
-        document.body.classList.remove(
-          'printing-no-invoice'
-        );
-      }, 500);
-    }, 200);
+    }, 300);
   };
 
-  /* =========================================================
-     PDF فرم بدون فاکتور
-     ========================================================= */
+  /*
+   * PDF فرم بدون فاکتور
+   */
+  const exportNoInvoicePdf = async () => {
+    syncNoInvoiceToMain();
 
-  const exportNoInvoicePdf =
-    async () => {
-      syncNoInvoiceToMain();
+    setNoInvoiceBusy(true);
 
-      setNoInvoiceBusy(true);
+    try {
+      const pages =
+        printableNoInvoicePages.length > 0
+          ? printableNoInvoicePages
+          : [[]];
 
-      try {
-        const pages =
-          printableNoInvoicePages.length >
-          0
-            ? printableNoInvoicePages
-            : [[]];
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+        compress: true
+      });
 
-        const pdf = new jsPDF({
-          orientation: 'portrait',
-          unit: 'mm',
-          format: 'a4',
-          compress: true
+      for (
+        let pageIndex = 0;
+        pageIndex < pages.length;
+        pageIndex++
+      ) {
+        const node = document.getElementById(
+          `no-invoice-print-page-${pageIndex}`
+        );
+
+        if (!node) continue;
+
+        const canvas = await html2canvas(node, {
+          scale: 2.5,
+          backgroundColor: '#fff',
+          useCORS: true
         });
 
-        for (
-          let pageIndex = 0;
-          pageIndex < pages.length;
-          pageIndex++
-        ) {
-          const node =
-            document.getElementById(
-              `no-invoice-print-page-${pageIndex}`
-            );
-
-          if (!node) continue;
-
-          const canvas =
-            await html2canvas(node, {
-              scale: 2.5,
-              backgroundColor: '#fff',
-              useCORS: true
-            });
-
-          if (pageIndex > 0) {
-            pdf.addPage();
-          }
-
-          const pageW = 210;
-          const margin = 5;
-
-          /*
-           * فرم در نیمه بالایی A4 قرار می‌گیرد.
-           * ارتفاع چاپی هدف تقریباً 140mm است.
-           */
-
-          const maxH = 140;
-
-          const ratio =
-            Math.min(
-              (pageW -
-                margin * 2) /
-                canvas.width,
-              maxH / canvas.height
-            );
-
-          const w =
-            canvas.width * ratio;
-
-          const h =
-            canvas.height * ratio;
-
-          pdf.addImage(
-            canvas.toDataURL(
-              'image/jpeg',
-              0.96
-            ),
-            'JPEG',
-            (pageW - w) / 2,
-            margin,
-            w,
-            h,
-            undefined,
-            'FAST'
-          );
+        if (pageIndex > 0) {
+          pdf.addPage();
         }
 
-        pdf.save(
-          `فرم-صورت-هزینه-بدون-فاکتور-${
-            header.date ||
-            'بدون-تاریخ'
-          }.pdf`
-        );
-      } finally {
-        setNoInvoiceBusy(false);
-      }
-    };
+        const pageW = 210;
+        const pageH = 297;
+        const margin = 5;
 
-  /* =========================================================
-     پاک کردن اطلاعات
-     ========================================================= */
+        const ratio = Math.min(
+          (pageW - margin * 2) / canvas.width,
+          (142 - margin) / canvas.height
+        );
+
+        const w = canvas.width * ratio;
+        const h = canvas.height * ratio;
+
+        pdf.addImage(
+          canvas.toDataURL('image/jpeg', 0.96),
+          'JPEG',
+          (pageW - w) / 2,
+          margin,
+          w,
+          h,
+          undefined,
+          'FAST'
+        );
+      }
+
+      pdf.save(
+        `فرم-صورت-هزینه-بدون-فاکتور-${
+          header.date || 'بدون-تاریخ'
+        }.pdf`
+      );
+    } finally {
+      setNoInvoiceBusy(false);
+    }
+  };
 
   const reset = () => {
-    const newDate =
-      header.date;
+    const newDate = header.date;
 
     setRows(
-      Array.from(
-        { length: 8 },
-        () => ({
-          ...emptyRow(),
-          date: newDate
-        })
-      )
+      Array.from({ length: 8 }, () => ({
+        ...emptyRow(),
+        date: newDate
+      }))
     );
 
     setHeader(h => ({
@@ -581,10 +419,8 @@ function App() {
     }));
 
     setNoInvoice({
-      formCode:
-        'FI-B-FO-135/00',
-      referenceCode:
-        'FI-B-RE-001/00',
+      formCode: 'FI-B-FO-135/00',
+      referenceCode: 'FI-B-RE-001/00',
       date: newDate,
       requester: '',
       position: '',
@@ -604,17 +440,17 @@ function App() {
     });
   };
 
-  /* =========================================================
-     فرم بدون فاکتور
-     ========================================================= */
-
+  /*
+   * ============================================================
+   * فرم بدون فاکتور
+   * ============================================================
+   */
   const NoInvoiceCopy = ({
     items,
     pageIndex,
     totalPages
   }) => {
-    const pageTotal =
-      noInvoiceTotal(items);
+    const pageTotal = noInvoiceTotal(items);
 
     return (
       <section
@@ -625,17 +461,12 @@ function App() {
 
           <div className="ni-codes">
             <div>
-              کد فرم:{' '}
-              <b>
-                {noInvoice.formCode}
-              </b>
+              کد فرم: <b>{noInvoice.formCode}</b>
             </div>
 
             <div>
               کد سند مرجع:{' '}
-              <b>
-                {noInvoice.referenceCode}
-              </b>
+              <b>{noInvoice.referenceCode}</b>
             </div>
           </div>
 
@@ -650,13 +481,12 @@ function App() {
               className="faran-logo ni-faran-logo"
             />
           </div>
+
         </div>
 
         <div className="ni-page-info">
           {totalPages > 1
-            ? `صفحه ${
-                pageIndex + 1
-              } از ${totalPages}`
+            ? `صفحه ${pageIndex + 1} از ${totalPages}`
             : ''}
         </div>
 
@@ -686,9 +516,7 @@ function App() {
               '................................'}
           </b>
 
-          <span>
-            واحد سازمانی:
-          </span>
+          <span>واحد سازمانی:</span>
 
           <b>
             {noInvoice.organization ||
@@ -703,7 +531,6 @@ function App() {
 
             <thead>
               <tr>
-
                 <th className="ni-col-row">
                   ردیف
                 </th>
@@ -727,73 +554,54 @@ function App() {
                 <th className="ni-col-total">
                   مبلغ کل (ریال)
                 </th>
-
               </tr>
             </thead>
 
             <tbody>
 
-              {items.map(
-                (item, index) => (
-                  <tr key={index}>
+              {items.map((item, index) => (
+                <tr key={index}>
 
-                    <td>
-                      {index + 1}
-                    </td>
+                  <td>{index + 1}</td>
 
-                    <td>
-                      {item.product}
-                    </td>
+                  <td>{item.product}</td>
 
-                    <td>
-                      {item.provider}
-                    </td>
+                  <td>{item.provider}</td>
 
-                    <td>
-                      {item.qty || '1'}
-                    </td>
+                  <td>{item.qty || '1'}</td>
 
-                    <td>
-                      {formatMoney(
-                        item.unitAmount
-                      )}
-                    </td>
+                  <td>
+                    {formatMoney(item.unitAmount)}
+                  </td>
 
-                    <td>
-                      {formatMoney(
-                        item.total ||
-                          item.unitAmount
-                      )}
-                    </td>
+                  <td>
+                    {formatMoney(
+                      item.total || item.unitAmount
+                    )}
+                  </td>
 
-                  </tr>
-                )
-              )}
+                </tr>
+              ))}
 
               {Array.from({
-                length: Math.max(
-                  0,
-                  3 - items.length
-                )
-              }).map(
-                (_, index) => (
-                  <tr
-                    key={`empty-${index}`}
-                  >
-                    <td>
-                      {items.length +
-                        index +
-                        1}
-                    </td>
+                length: Math.max(0, 3 - items.length)
+              }).map((_, index) => (
+                <tr key={`empty-${index}`}>
 
-                    <td></td>
-                    <td></td>
-                    <td>1</td>
-                    <td></td>
-                    <td></td>
-                  </tr>
-                )
-              )}
+                  <td>
+                    {items.length + index + 1}
+                  </td>
+
+                  <td></td>
+                  <td></td>
+
+                  <td>1</td>
+
+                  <td></td>
+                  <td></td>
+
+                </tr>
+              ))}
 
               <tr className="ni-total-row">
 
@@ -802,15 +610,15 @@ function App() {
                 </td>
 
                 <td>
-                  {formatMoney(
-                    pageTotal
-                  )}
+                  {formatMoney(pageTotal)}
                 </td>
 
               </tr>
 
             </tbody>
+
           </table>
+
         </div>
 
         <div className="ni-reason-row">
@@ -822,6 +630,7 @@ function App() {
           <div className="ni-reason-content">
 
             <div>
+
               <b>
                 دلیل استفاده از کالا / خدمات :
               </b>
@@ -830,6 +639,7 @@ function App() {
                 {noInvoice.reason ||
                   '....................................................................................................................'}
               </span>
+
             </div>
 
             {!noInvoice.reason && (
@@ -869,12 +679,8 @@ function App() {
           <div className="ni-approval-content">
 
             <div>
-              <b>
-                اظهار نظر تایید کننده:
-              </b>{' '}
-              {
-                noInvoice.approverComment
-              }
+              <b>اظهار نظر تایید کننده:</b>{' '}
+              {noInvoice.approverComment}
             </div>
 
             <div className="ni-checks">
@@ -884,12 +690,12 @@ function App() {
 
                 <i
                   className={
-                    noInvoice.approved ===
-                    true
+                    noInvoice.approved === true
                       ? 'checked'
                       : ''
                   }
                 ></i>
+
               </span>
 
               <span>
@@ -897,12 +703,12 @@ function App() {
 
                 <i
                   className={
-                    noInvoice.approved ===
-                    false
+                    noInvoice.approved === false
                       ? 'checked'
                       : ''
                   }
                 ></i>
+
               </span>
 
             </div>
@@ -931,10 +737,7 @@ function App() {
 
         <div className="ni-notes-row">
 
-          <b>
-            توضیحات :
-          </b>{' '}
-
+          <b>توضیحات :</b>{' '}
           {noInvoice.notes}
 
         </div>
@@ -942,10 +745,6 @@ function App() {
       </section>
     );
   };
-
-  /* =========================================================
-     Render
-     ========================================================= */
 
   return (
     <div className="app-shell">
@@ -986,8 +785,10 @@ function App() {
 
         .ni-form-grid {
           display: grid;
-          grid-template-columns:
-            repeat(3, minmax(0, 1fr));
+          grid-template-columns: repeat(
+            3,
+            minmax(0, 1fr)
+          );
           gap: 10px;
         }
 
@@ -1063,8 +864,7 @@ function App() {
         .ni-header {
           height: 31mm;
           display: grid;
-          grid-template-columns:
-            27% 46% 27%;
+          grid-template-columns: 27% 46% 27%;
           border-bottom: 1.2px solid #111;
         }
 
@@ -1178,15 +978,13 @@ function App() {
         .ni-reason-row {
           min-height: 22mm;
           display: grid;
-          grid-template-columns:
-            14% 66% 20%;
+          grid-template-columns: 14% 66% 20%;
         }
 
         .ni-approval-row {
           min-height: 24mm;
           display: grid;
-          grid-template-columns:
-            14% 66% 20%;
+          grid-template-columns: 14% 66% 20%;
           border-top: 1px solid #111;
         }
 
@@ -1271,17 +1069,13 @@ function App() {
           margin-bottom: 0;
         }
 
+
         /* =====================================================
            PRINT
            ===================================================== */
 
-        @page main-form-page {
-          size: A4 landscape;
-          margin: 5mm;
-        }
-
-        @page no-invoice-page {
-          size: A4 portrait;
+        @page {
+          size: auto;
           margin: 5mm;
         }
 
@@ -1322,60 +1116,15 @@ function App() {
             padding: 0 !important;
           }
 
-          /* =================================================
-             حالت چاپ فقط فرم اصلی
-             ================================================= */
-
-          body.printing-main
-          #no-invoice-print-area,
-          body.printing-main
-          .no-invoice-preview-wrap {
-            display: none !important;
-          }
-
-          body.printing-main
-          #print-area {
-            display: block !important;
-          }
-
-          /* =================================================
-             حالت چاپ فقط فرم بدون فاکتور
-             ================================================= */
-
-          body.printing-no-invoice
-          #print-area {
-            display: none !important;
-          }
-
-          body.printing-no-invoice
-          #no-invoice-print-area {
-            display: block !important;
-          }
-
-          /* =================================================
-             چاپ کلی
-             ================================================= */
-
-          body.printing-all
-          #print-area {
-            display: block !important;
-          }
-
-          body.printing-all
-          #no-invoice-print-area {
-            display: block !important;
-          }
 
           /* =================================================
              فرم اصلی
+             A4 افقی
              ================================================= */
 
           #print-area {
-            page: main-form-page !important;
-
             width: 287mm !important;
             height: 200mm !important;
-
             min-height: 200mm !important;
             max-height: 200mm !important;
 
@@ -1393,12 +1142,19 @@ function App() {
             page-break-after: always !important;
           }
 
+
           /* =================================================
              محدوده فرم بدون فاکتور
              ================================================= */
 
+          .no-invoice-preview-wrap {
+            display: block !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+
           #no-invoice-print-area {
-            page: no-invoice-page !important;
 
             width: 200mm !important;
 
@@ -1408,16 +1164,17 @@ function App() {
             box-sizing: border-box !important;
 
             display: block !important;
+
+            background: #fff !important;
           }
+
 
           /* =================================================
              هر فرم بدون فاکتور
-             ارتفاع واقعی نصف A4
-             بدون transform
+             ارتفاع تقریباً نصف A4
              ================================================= */
 
-          #no-invoice-print-area
-          .ni-copy {
+          #no-invoice-print-area .ni-copy {
 
             width: 198mm !important;
 
@@ -1439,30 +1196,28 @@ function App() {
             page-break-after: avoid !important;
 
             /*
-             * مهم:
-             * transform: scale حذف شده است.
-             * چون scale باعث ایجاد فضای محاسباتی اضافه
-             * و در بعضی مرورگرها صفحه خالی می‌شد.
+             * بسیار مهم:
+             * هیچ scale یا transform در چاپ نداریم.
              */
             transform: none !important;
           }
 
-          /* =================================================
-             بعد از فرم دوم صفحه جدید
-             ================================================= */
+
+          /*
+           * فقط بعد از فرم دوم صفحه عوض شود.
+           */
 
           #no-invoice-print-area
           .ni-copy:nth-child(2n) {
-
-            margin-bottom: 0 !important;
 
             break-after: page !important;
             page-break-after: always !important;
           }
 
-          /* =================================================
-             آخرین فرم صفحه اضافه نسازد
-             ================================================= */
+
+          /*
+           * فرم آخر هرگز صفحه اضافه نسازد.
+           */
 
           #no-invoice-print-area
           .ni-copy:last-child {
@@ -1473,66 +1228,60 @@ function App() {
             page-break-after: auto !important;
           }
 
+
           /* =================================================
              فشرده‌سازی فرم بدون فاکتور
              ================================================= */
 
-          #no-invoice-print-area
-          .ni-header {
+          #no-invoice-print-area .ni-header {
             height: 17mm !important;
             min-height: 17mm !important;
             max-height: 17mm !important;
           }
 
-          #no-invoice-print-area
-          .ni-title {
+          #no-invoice-print-area .ni-title {
             font-size: 10px !important;
           }
 
-          #no-invoice-print-area
-          .ni-codes {
+          #no-invoice-print-area .ni-codes {
             font-size: 6px !important;
             line-height: 1.5 !important;
             padding: 0 3mm !important;
           }
 
-          #no-invoice-print-area
-          .ni-faran-logo {
+          #no-invoice-print-area .ni-faran-logo {
             width: 25mm !important;
             max-width: 90% !important;
             height: auto !important;
           }
 
-          #no-invoice-print-area
-          .ni-page-info {
+          #no-invoice-print-area .ni-page-info {
             top: 18mm !important;
             font-size: 5px !important;
           }
 
-          #no-invoice-print-area
-          .ni-date-row {
+          #no-invoice-print-area .ni-date-row {
             height: 5mm !important;
             min-height: 5mm !important;
+            max-height: 5mm !important;
             padding: 0 3mm !important;
             font-size: 6px !important;
           }
 
-          #no-invoice-print-area
-          .ni-requester-row {
+          #no-invoice-print-area .ni-requester-row {
             height: 6mm !important;
             min-height: 6mm !important;
+            max-height: 6mm !important;
             font-size: 5.5px !important;
             padding: 0 2mm !important;
             gap: 2px !important;
           }
 
-          #no-invoice-print-area
-          .ni-table-wrap {
+          #no-invoice-print-area .ni-table-wrap {
             margin-top: 0 !important;
           }
 
-          #no-invoice-print-area
-          .ni-table {
+          #no-invoice-print-area .ni-table {
             font-size: 6px !important;
           }
 
@@ -1552,11 +1301,13 @@ function App() {
 
           #no-invoice-print-area
           .ni-table th {
+
             height: 6.5mm !important;
           }
 
           #no-invoice-print-area
           .ni-total-row td {
+
             height: 5.5mm !important;
           }
 
@@ -1578,6 +1329,7 @@ function App() {
 
           #no-invoice-print-area
           .ni-horizontal-label {
+
             font-size: 6px !important;
           }
 
@@ -1649,6 +1401,7 @@ function App() {
           }
         }
 
+
         /* =====================================================
            Responsive
            ===================================================== */
@@ -1656,8 +1409,7 @@ function App() {
         @media (max-width: 900px) {
 
           .ni-form-grid {
-            grid-template-columns:
-              1fr 1fr;
+            grid-template-columns: 1fr 1fr;
           }
 
           .ni-form-grid .wide {
@@ -1665,8 +1417,7 @@ function App() {
           }
 
           .ni-header {
-            grid-template-columns:
-              25% 50% 25%;
+            grid-template-columns: 25% 50% 25%;
           }
 
           .ni-title {
@@ -1729,6 +1480,7 @@ function App() {
 
       `}</style>
 
+
       {/* =====================================================
           پنل کنترل
           ===================================================== */}
@@ -1740,11 +1492,11 @@ function App() {
         </div>
 
         <p className="hint">
-          مبنای فرم بدون فاکتور، ردیف‌های فرم
-          اصلی است. هر هزینه‌ای که در شرح هزینه
-          فرم اصلی وارد شود و مبلغ داشته باشد،
-          به فرم بدون فاکتور منتقل می‌شود.
+          مبنای فرم بدون فاکتور، ردیف‌های فرم اصلی است.
+          هر هزینه‌ای که در شرح هزینه فرم اصلی وارد شود
+          و مبلغ داشته باشد، به فرم بدون فاکتور منتقل می‌شود.
         </p>
+
 
         <section>
 
@@ -1766,6 +1518,7 @@ function App() {
             />
           </label>
 
+
           <div className="two-col">
 
             <label>
@@ -1782,6 +1535,7 @@ function App() {
               />
             </label>
 
+
             <label>
               کد سند مرجع
 
@@ -1790,14 +1544,14 @@ function App() {
                 onChange={e =>
                   setHeader({
                     ...header,
-                    serviceCode:
-                      e.target.value
+                    serviceCode: e.target.value
                   })
                 }
               />
             </label>
 
           </div>
+
 
           <div className="two-col">
 
@@ -1807,12 +1561,11 @@ function App() {
               <input
                 value={header.date}
                 onChange={e =>
-                  updateHeaderDate(
-                    e.target.value
-                  )
+                  updateHeaderDate(e.target.value)
                 }
               />
             </label>
+
 
             <label>
               تاریخ واریز
@@ -1822,8 +1575,7 @@ function App() {
                 onChange={e =>
                   setHeader({
                     ...header,
-                    reviewDate:
-                      e.target.value
+                    reviewDate: e.target.value
                   })
                 }
               />
@@ -1832,6 +1584,7 @@ function App() {
           </div>
 
         </section>
+
 
         <section>
 
@@ -1852,6 +1605,7 @@ function App() {
                   ردیف {i + 1}
                 </b>
 
+
                 <input
                   placeholder="تاریخ"
                   value={r.date}
@@ -1864,6 +1618,7 @@ function App() {
                   }
                 />
 
+
                 <input
                   placeholder="محل مراجعه (بانک/شرکت)"
                   value={r.place}
@@ -1875,6 +1630,7 @@ function App() {
                     )
                   }
                 />
+
 
                 <select
                   value={r.service}
@@ -1909,6 +1665,7 @@ function App() {
 
                 </select>
 
+
                 <input
                   placeholder="شماره قرارداد / فاکتور"
                   value={r.invoice}
@@ -1921,6 +1678,7 @@ function App() {
                   }
                 />
 
+
                 <input
                   placeholder="شرح هزینه — مثال: تاکسی"
                   value={r.description}
@@ -1932,6 +1690,7 @@ function App() {
                     )
                   }
                 />
+
 
                 <input
                   inputMode="numeric"
@@ -1954,6 +1713,7 @@ function App() {
 
         </section>
 
+
         {/* =================================================
             فرم بدون فاکتور
             ================================================= */}
@@ -1965,10 +1725,12 @@ function App() {
           </h3>
 
           <p className="hint">
-            این فرم به صورت خودکار از فرم اصلی
-            ساخته می‌شود. هر فرم حداکثر ۳ ردیف
-            دارد.
+            این فرم به صورت خودکار از فرم اصلی ساخته می‌شود.
+            برای مثال اگر دو ردیف تاکسی در فرم اصلی داشته باشید،
+            دو ردیف جداگانه تاکسی در فرم بدون فاکتور ساخته می‌شود.
+            هر فرم حداکثر ۳ ردیف دارد.
           </p>
+
 
           <div className="ni-form-grid">
 
@@ -1980,29 +1742,27 @@ function App() {
                 onChange={e =>
                   setNoInvoice({
                     ...noInvoice,
-                    formCode:
-                      e.target.value
+                    formCode: e.target.value
                   })
                 }
               />
             </label>
+
 
             <label>
               کد سند مرجع
 
               <input
-                value={
-                  noInvoice.referenceCode
-                }
+                value={noInvoice.referenceCode}
                 onChange={e =>
                   setNoInvoice({
                     ...noInvoice,
-                    referenceCode:
-                      e.target.value
+                    referenceCode: e.target.value
                   })
                 }
               />
             </label>
+
 
             <label>
               تاریخ
@@ -2017,109 +1777,98 @@ function App() {
               />
             </label>
 
+
             <label>
               نام و نام خانوادگی درخواست کننده
 
               <input
-                value={
-                  noInvoice.requester
-                }
+                value={noInvoice.requester}
                 onChange={e =>
                   setNoInvoice({
                     ...noInvoice,
-                    requester:
-                      e.target.value
+                    requester: e.target.value
                   })
                 }
               />
             </label>
+
 
             <label>
               سمت
 
               <input
-                value={
-                  noInvoice.position
-                }
+                value={noInvoice.position}
                 onChange={e =>
                   setNoInvoice({
                     ...noInvoice,
-                    position:
-                      e.target.value
+                    position: e.target.value
                   })
                 }
               />
             </label>
+
 
             <label>
               واحد سازمانی
 
               <input
-                value={
-                  noInvoice.organization
-                }
+                value={noInvoice.organization}
                 onChange={e =>
                   setNoInvoice({
                     ...noInvoice,
-                    organization:
-                      e.target.value
+                    organization: e.target.value
                   })
                 }
               />
             </label>
+
 
             <label className="wide">
               دلیل استفاده از کالا / خدمات
 
               <input
-                value={
-                  noInvoice.reason
-                }
+                value={noInvoice.reason}
                 onChange={e =>
                   setNoInvoice({
                     ...noInvoice,
-                    reason:
-                      e.target.value
+                    reason: e.target.value
                   })
                 }
               />
             </label>
+
 
             <label className="wide">
               اظهار نظر تایید کننده
 
               <input
-                value={
-                  noInvoice.approverComment
-                }
+                value={noInvoice.approverComment}
                 onChange={e =>
                   setNoInvoice({
                     ...noInvoice,
-                    approverComment:
-                      e.target.value
+                    approverComment: e.target.value
                   })
                 }
               />
             </label>
 
+
             <label className="wide">
               توضیحات
 
               <input
-                value={
-                  noInvoice.notes
-                }
+                value={noInvoice.notes}
                 onChange={e =>
                   setNoInvoice({
                     ...noInvoice,
-                    notes:
-                      e.target.value
+                    notes: e.target.value
                   })
                 }
               />
             </label>
 
           </div>
+
 
           <div className="ni-items-editor">
 
@@ -2129,14 +1878,23 @@ function App() {
 
                 <tr>
                   <th>ردیف</th>
+
                   <th>
                     مشخصات کالا / خدمات
                   </th>
+
                   <th>
                     آدرس ارائه دهنده کالا / خدمات
                   </th>
-                  <th>تعداد</th>
-                  <th>مبلغ واحد</th>
+
+                  <th>
+                    تعداد
+                  </th>
+
+                  <th>
+                    مبلغ واحد
+                  </th>
+
                   <th>
                     مبلغ کل (ریال)
                   </th>
@@ -2144,17 +1902,18 @@ function App() {
 
               </thead>
 
+
               <tbody>
 
-                {derivedNoInvoiceItems.length ===
-                0 ? (
+                {derivedNoInvoiceItems.length === 0 ? (
 
                   <tr>
+
                     <td colSpan="6">
                       هنوز هزینه‌ای از فرم اصلی
-                      برای فرم بدون فاکتور وجود
-                      ندارد.
+                      برای فرم بدون فاکتور وجود ندارد.
                     </td>
+
                   </tr>
 
                 ) : (
@@ -2205,13 +1964,13 @@ function App() {
 
           </div>
 
+
           <div
             style={{
               marginTop: '10px',
               padding: '10px',
               background: '#eef7ff',
-              border:
-                '1px solid #b7d7ef',
+              border: '1px solid #b7d7ef',
               borderRadius: '6px'
             }}
           >
@@ -2232,38 +1991,33 @@ function App() {
                 تعداد کل هزینه‌ها:
               </b>{' '}
 
-              {
-                derivedNoInvoiceItems.length
-              }
+              {derivedNoInvoiceItems.length}
 
             </span>
 
           </div>
 
+
           <div className="ni-actions">
 
             <button
               className="primary"
-              onClick={
-                syncNoInvoiceToMain
-              }
+              onClick={syncNoInvoiceToMain}
             >
               ↔ بروزرسانی فرم بدون فاکتور
             </button>
 
+
             <button
-              onClick={
-                printNoInvoiceForm
-              }
+              onClick={printNoInvoiceForm}
             >
               🖨 چاپ فرم بدون فاکتور
             </button>
 
+
             <button
               className="primary"
-              onClick={
-                exportNoInvoicePdf
-              }
+              onClick={exportNoInvoicePdf}
               disabled={noInvoiceBusy}
             >
               {noInvoiceBusy
@@ -2274,6 +2028,7 @@ function App() {
           </div>
 
         </section>
+
 
         {/* =================================================
             امضاها
@@ -2291,48 +2046,41 @@ function App() {
               امضاء درخواست کننده
 
               <input
-                value={
-                  signatures.requester
-                }
+                value={signatures.requester}
                 onChange={e =>
                   setSignatures({
                     ...signatures,
-                    requester:
-                      e.target.value
+                    requester: e.target.value
                   })
                 }
               />
             </label>
+
 
             <label>
               امضاء تایید کننده
 
               <input
-                value={
-                  signatures.confirmer
-                }
+                value={signatures.confirmer}
                 onChange={e =>
                   setSignatures({
                     ...signatures,
-                    confirmer:
-                      e.target.value
+                    confirmer: e.target.value
                   })
                 }
               />
             </label>
 
+
             <label>
               امضاء تصویب کننده
 
               <input
-                value={
-                  signatures.issuer
-                }
+                value={signatures.issuer}
                 onChange={e =>
                   setSignatures({
                     ...signatures,
-                    issuer:
-                      e.target.value
+                    issuer: e.target.value
                   })
                 }
               />
@@ -2341,6 +2089,7 @@ function App() {
           </div>
 
         </section>
+
 
         {/* =================================================
             دکمه‌های چاپ
@@ -2355,11 +2104,13 @@ function App() {
             🖨 چاپ کلی همه فرم‌ها
           </button>
 
+
           <button
             onClick={printMainForm}
           >
             🖨 چاپ فقط فرم اصلی
           </button>
+
 
           <button
             className="primary"
@@ -2370,6 +2121,7 @@ function App() {
               ? 'در حال ساخت PDF…'
               : '📄 خروجی PDF فرم اصلی'}
           </button>
+
 
           <button
             className="ghost"
@@ -2382,6 +2134,7 @@ function App() {
 
       </aside>
 
+
       {/* =====================================================
           پیش‌نمایش
           ===================================================== */}
@@ -2391,6 +2144,7 @@ function App() {
         <div className="preview-label no-print">
           پیش‌نمایش فرم اصلی
         </div>
+
 
         {/* =================================================
             فرم اصلی
@@ -2413,36 +2167,33 @@ function App() {
 
             </div>
 
+
             <div className="header-title">
               {header.title}
             </div>
+
 
             <div className="header-codes">
 
               <div>
                 کد سند :{' '}
-                <b>
-                  {header.docCode}
-                </b>
+                <b>{header.docCode}</b>
               </div>
 
               <div>
                 کد سند مرجع :{' '}
-                <b>
-                  {header.serviceCode}
-                </b>
+                <b>{header.serviceCode}</b>
               </div>
 
               <div>
                 تاریخ :{' '}
-                <b>
-                  {header.date}
-                </b>
+                <b>{header.date}</b>
               </div>
 
             </div>
 
           </header>
+
 
           <table className="expense-table">
 
@@ -2484,47 +2235,45 @@ function App() {
 
             </thead>
 
+
             <tbody>
 
-              {rows.map(
-                (r, i) => (
+              {rows.map((r, i) => (
 
-                  <tr key={i}>
+                <tr key={i}>
 
-                    <td>
-                      {i + 1}
-                    </td>
+                  <td>
+                    {i + 1}
+                  </td>
 
-                    <td>
-                      {r.date}
-                    </td>
+                  <td>
+                    {r.date}
+                  </td>
 
-                    <td>
-                      {r.place}
-                    </td>
+                  <td>
+                    {r.place}
+                  </td>
 
-                    <td>
-                      {r.service}
-                    </td>
+                  <td>
+                    {r.service}
+                  </td>
 
-                    <td>
-                      {r.invoice}
-                    </td>
+                  <td>
+                    {r.invoice}
+                  </td>
 
-                    <td className="description">
-                      {r.description}
-                    </td>
+                  <td className="description">
+                    {r.description}
+                  </td>
 
-                    <td>
-                      {formatMoney(
-                        r.amount
-                      )}
-                    </td>
+                  <td>
+                    {formatMoney(r.amount)}
+                  </td>
 
-                  </tr>
+                </tr>
 
-                )
-              )}
+              ))}
+
 
               <tr className="total-row">
 
@@ -2538,6 +2287,7 @@ function App() {
 
               </tr>
 
+
               <tr className="review-row">
 
                 <td colSpan="7">
@@ -2550,6 +2300,7 @@ function App() {
             </tbody>
 
           </table>
+
 
           <div className="signatures">
 
@@ -2569,6 +2320,7 @@ function App() {
 
             </div>
 
+
             <div>
 
               <span>
@@ -2584,6 +2336,7 @@ function App() {
               </em>
 
             </div>
+
 
             <div>
 
@@ -2605,8 +2358,9 @@ function App() {
 
         </div>
 
+
         {/* =================================================
-            فرم بدون فاکتور
+            فرم‌های بدون فاکتور
             ================================================= */}
 
         <div className="no-invoice-preview-wrap">
@@ -2615,13 +2369,11 @@ function App() {
             پیش‌نمایش فرم‌های هزینه بدون فاکتور
           </div>
 
+
           <div id="no-invoice-print-area">
 
             {printableNoInvoicePages.map(
-              (
-                pageItems,
-                pageIndex
-              ) => (
+              (pageItems, pageIndex) => (
 
                 <NoInvoiceCopy
                   key={pageIndex}
@@ -2645,12 +2397,6 @@ function App() {
   );
 }
 
-/* =========================================================
-   Mount
-   ========================================================= */
-
 createRoot(
   document.getElementById('root')
-).render(
-  <App />
-);
+).render(<App />);
