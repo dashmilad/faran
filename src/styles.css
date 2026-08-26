@@ -1,4 +1,928 @@
-@font-face{font-family:VazirmatnLocal;src:local('Vazirmatn'),local('Tahoma');}
-*{box-sizing:border-box}body{margin:0;background:#eef0f3;color:#111;font-family:VazirmatnLocal,Tahoma,Arial,sans-serif}.app-shell{display:grid;grid-template-columns:390px 1fr;gap:18px;min-height:100vh;padding:18px}.control-panel{background:#fff;border:1px solid #d8dce2;border-radius:14px;padding:18px;box-shadow:0 6px 24px #00000010;height:fit-content;position:sticky;top:18px;max-height:calc(100vh - 36px);overflow:auto}.panel-title{font-size:22px;font-weight:800;margin-bottom:4px}.hint{font-size:12px;color:#666;margin:0 0 15px;line-height:1.8}.control-panel section{border-top:1px solid #eee;padding-top:13px;margin-top:13px}.control-panel h3{font-size:14px;margin:0 0 10px}.control-panel label{display:block;font-size:11px;color:#555;margin-bottom:8px}.control-panel input{width:100%;margin-top:4px;border:1px solid #ccd2da;border-radius:7px;padding:8px 9px;font:inherit;font-size:12px;background:#fff}.two-col,.three-col{display:grid;grid-template-columns:1fr 1fr;gap:8px}.three-col{grid-template-columns:repeat(3,1fr)}.row-editor{border:1px solid #e2e5e9;border-radius:8px;padding:7px;margin-bottom:8px;background:#fafafa}.row-editor b{display:block;font-size:11px;margin-bottom:5px}.row-editor input{margin:3px 0}.actions{display:grid;gap:8px;margin-top:16px}.actions button{border:0;border-radius:8px;padding:11px;cursor:pointer;font:inherit;font-size:13px;background:#e9ecef}.actions .primary{background:#1e4f8f;color:white}.actions .ghost{background:white;border:1px solid #ddd}.actions button:disabled{opacity:.6}.preview-wrap{display:flex;flex-direction:column;align-items:center;overflow:auto}.preview-label{width:297mm;max-width:100%;font-size:12px;color:#666;margin:0 0 7px}.paper{width:297mm;min-height:210mm;background:white;padding:12mm 12mm 10mm;box-shadow:0 5px 30px #00000018;direction:rtl;color:#111}.form-header{height:31mm;border:1px solid #222;display:grid;grid-template-columns:1.05fr 2.8fr 1.25fr;direction:rtl}.brand{border-left:1px solid #222;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2px}.brand strong{font-size:20px;letter-spacing:1px}.brand small{font-size:7px}.header-title{display:flex;align-items:center;justify-content:center;text-align:center;font-size:14px;font-weight:700;border-left:1px solid #222;padding:4px}.header-codes{display:flex;flex-direction:column;justify-content:center;font-size:10px;line-height:2.2;padding:5px 8px;text-align:right}.expense-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9px;margin-top:4mm}.expense-table th,.expense-table td{border:1px solid #222;padding:2px 3px;text-align:center;vertical-align:middle;height:9.4mm;overflow:hidden}.expense-table thead th{height:12mm;font-weight:700;background:#fafafa}.expense-table .narrow{width:7%}.expense-table th:nth-child(2){width:10%}.expense-table th:nth-child(3){width:18%}.expense-table th:nth-child(4){width:13%}.expense-table th:nth-child(5){width:16%}.expense-table th:nth-child(6){width:25%}.expense-table th:nth-child(7){width:16%}.expense-table .description{text-align:right}.expense-table .total-row td{height:9mm;font-weight:700}.expense-table .review-row td{text-align:right;height:7mm}.signatures{display:grid;grid-template-columns:1fr 1fr 1fr;margin-top:4mm;border:1px solid #222;direction:rtl}.signatures>div{height:18mm;border-left:1px solid #222;padding:4px 7px;position:relative;font-size:8px}.signatures>div:last-child{border-left:0}.signatures span{display:block}.signatures strong{display:block;text-align:center;font-size:10px;margin-top:7px}.signatures em{position:absolute;left:7px;bottom:3px;font-style:normal;font-size:7px}.no-print{}
-@media(max-width:1100px){.app-shell{grid-template-columns:1fr}.control-panel{position:static;max-height:none}.preview-wrap{align-items:flex-start}.paper{transform-origin:top right}.preview-label{width:100%}}
-@media print{body{background:white}.no-print,.control-panel,.preview-label{display:none!important}.app-shell{display:block;padding:0}.preview-wrap{display:block}.paper{box-shadow:none;width:297mm;height:210mm;min-height:210mm;margin:0;padding:12mm 12mm 10mm;page-break-after:avoid}.form-header,.expense-table,.signatures{break-inside:avoid}@page{size:A4 landscape;margin:0}}
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  font-family: 'B Nazanin', 'Tahoma', sans-serif;
+  font-size: 12px;
+  line-height: 1.4;
+  direction: rtl;
+  background: #f5f5f5;
+}
+
+/* ============================================================
+   APP SHELL
+   ============================================================ */
+
+.app-shell {
+  display: flex;
+  gap: 20px;
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.no-print {
+  print: none !important;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* ============================================================
+   CONTROL PANEL
+   ============================================================ */
+
+.control-panel {
+  flex: 0 0 300px;
+  background: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  max-height: 100vh;
+  overflow-y: auto;
+}
+
+.panel-title {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.hint {
+  font-size: 11px;
+  color: #666;
+  margin-bottom: 15px;
+  line-height: 1.6;
+}
+
+.control-panel section {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.control-panel h3 {
+  font-size: 13px;
+  font-weight: bold;
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.control-panel label {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #555;
+}
+
+.control-panel input {
+  padding: 6px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: inherit;
+  margin-top: 3px;
+  direction: rtl;
+  text-align: right;
+}
+
+.control-panel input:focus {
+  outline: none;
+  border-color: #0066cc;
+  box-shadow: 0 0 4px rgba(0, 102, 204, 0.3);
+}
+
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.three-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+
+.mobile-table {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.row-editor {
+  padding: 10px;
+  background: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.row-editor b {
+  display: block;
+  font-size: 11px;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.row-editor input {
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+}
+
+/* ============================================================
+   NO INVOICE EDITOR
+   ============================================================ */
+
+.no-invoice-editor {
+  background: #f0f7ff;
+  padding: 15px;
+  border-radius: 6px;
+  border: 1px solid #b3d9ff;
+}
+
+.ni-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.ni-form-grid label.wide {
+  grid-column: 1 / -1;
+}
+
+.approval-radios {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 20px;
+}
+
+.approval-radios label {
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+}
+
+.approval-radios input[type="radio"] {
+  width: auto;
+  margin: 0;
+}
+
+.ni-items-editor {
+  margin-bottom: 15px;
+  overflow-x: auto;
+}
+
+.ni-items-editor table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+  background: #fff;
+}
+
+.ni-items-editor table th,
+.ni-items-editor table td {
+  border: 1px solid #ccc;
+  padding: 6px;
+  text-align: right;
+}
+
+.ni-items-editor table th {
+  background: #e8f0ff;
+  font-weight: bold;
+  color: #333;
+}
+
+.ni-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  padding: 10px;
+  background: #fff;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.ni-status span {
+  margin-left: 15px;
+}
+
+.ni-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+
+button {
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  font-family: inherit;
+  transition: all 0.2s;
+  color: #333;
+}
+
+button:hover:not(:disabled) {
+  background: #f0f0f0;
+  border-color: #999;
+}
+
+button.primary {
+  background: #0066cc;
+  color: #fff;
+  border-color: #0066cc;
+}
+
+button.primary:hover:not(:disabled) {
+  background: #0052a3;
+  border-color: #0052a3;
+}
+
+button.ghost {
+  background: transparent;
+  color: #666;
+  border-color: #999;
+}
+
+button.ghost:hover:not(:disabled) {
+  background: #f5f5f5;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 15px;
+}
+
+/* ============================================================
+   PREVIEW
+   ============================================================ */
+
+.preview-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.preview-label {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 10px;
+  font-weight: 500;
+}
+
+.paper {
+  background: #fff;
+  padding: 20px;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+  direction: rtl;
+  page-break-after: always;
+}
+
+/* ============================================================
+   MAIN FORM - دقیق مثل تصویر
+   ============================================================ */
+
+.header-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 2px solid #333;
+  margin-bottom: 0;
+}
+
+.header-table td {
+  border: 1px solid #333;
+  padding: 6px 8px;
+  text-align: right;
+  font-size: 11px;
+  height: 30px;
+  vertical-align: middle;
+}
+
+.header-codes-col {
+  width: 35%;
+  font-weight: 500;
+  background-color: #fff;
+}
+
+.header-title-col {
+  width: 45%;
+  text-align: center;
+  vertical-align: middle;
+  font-size: 13px;
+  font-weight: bold;
+  color: #333;
+  background-color: #fff;
+}
+
+.header-logo-col {
+  width: 20%;
+  text-align: center;
+  padding: 3px;
+  background-color: #fff;
+}
+
+.logo-header {
+  width: 55px;
+  height: auto;
+}
+
+/* جدول اصلی */
+.expense-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 2px solid #333;
+  margin-top: 0;
+  margin-bottom: 0;
+  font-size: 10px;
+}
+
+.expense-table th {
+  border: 1px solid #333;
+  padding: 5px;
+  text-align: center;
+  background-color: #e8e8e8;
+  font-weight: bold;
+  color: #333;
+  height: 28px;
+  vertical-align: middle;
+  word-wrap: break-word;
+}
+
+.expense-table td {
+  border: 1px solid #333;
+  padding: 4px;
+  text-align: right;
+  vertical-align: middle;
+  height: 22px;
+}
+
+.th-row {
+  width: 30px;
+}
+
+.th-date {
+  width: 50px;
+}
+
+.th-place {
+  width: 80px;
+  font-size: 9px;
+}
+
+.th-service {
+  width: 55px;
+}
+
+.th-invoice {
+  width: 65px;
+  font-size: 9px;
+}
+
+.th-desc {
+  width: 90px;
+}
+
+.th-amount {
+  width: 70px;
+}
+
+.td-row {
+  text-align: center;
+  font-weight: 500;
+}
+
+.td-date {
+  text-align: center;
+  font-size: 9px;
+}
+
+.td-place {
+  font-size: 9px;
+}
+
+.td-service {
+  font-size: 9px;
+}
+
+.td-invoice {
+  font-size: 9px;
+}
+
+.td-desc {
+  font-size: 9px;
+}
+
+.td-amount {
+  text-align: left;
+  font-weight: 500;
+  font-size: 9px;
+}
+
+.tr-total {
+  background-color: #f5f5f5;
+  font-weight: bold;
+}
+
+.tr-review {
+  background-color: #fafafa;
+}
+
+.td-review {
+  padding: 6px;
+  font-size: 10px;
+  text-align: right;
+}
+
+/* جدول امضاها */
+.signatures-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 2px solid #333;
+  margin-top: 0;
+  font-size: 10px;
+}
+
+.sig-cell {
+  border: 1px solid #333;
+  padding: 8px;
+  text-align: center;
+  width: 33.33%;
+  vertical-align: top;
+  min-height: 60px;
+}
+
+.sig-left,
+.sig-center,
+.sig-right {
+  font-weight: 500;
+  margin-bottom: 8px;
+  font-size: 9px;
+}
+
+.sig-space {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+}
+
+/* ============================================================
+   NO INVOICE FORM - طراحی جدید
+   ============================================================ */
+
+.ni-copy {
+  background: #fff;
+  padding: 20px;
+  border: 1px solid #333;
+  margin-bottom: 20px;
+  page-break-inside: avoid;
+  direction: rtl;
+}
+
+/* سربرگ جدید */
+.ni-header-new {
+  display: grid;
+  grid-template-columns: 1fr 1fr 100px;
+  gap: 15px;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #333;
+}
+
+.ni-header-left {
+  order: 3;
+  text-align: right;
+}
+
+.ni-header-center {
+  order: 2;
+  text-align: center;
+}
+
+.ni-header-right {
+  order: 1;
+  text-align: left;
+}
+
+.ni-codes-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  border: 1px solid #333;
+  padding: 8px;
+  background: #fafafa;
+}
+
+.ni-code-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ni-code-label {
+  font-weight: 500;
+  flex: 0 0 auto;
+}
+
+.ni-code-value {
+  font-weight: bold;
+  flex: 0 0 auto;
+}
+
+.ni-form-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #333;
+}
+
+.ni-header-logo {
+  width: 50px;
+  height: auto;
+}
+
+/* شماره صفحه */
+.ni-page-number {
+  text-align: center;
+  font-size: 10px;
+  color: #666;
+  margin-bottom: 10px;
+  padding: 5px 0;
+}
+
+/* فیلدهای بالا */
+.ni-top-fields {
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #ddd;
+}
+
+.ni-date-field {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 11px;
+}
+
+.ni-date-field label {
+  font-weight: 500;
+  flex: 0 0 auto;
+}
+
+.ni-date-value {
+  flex: 1;
+  padding-bottom: 2px;
+  border-bottom: 1px dotted #999;
+}
+
+.ni-requester-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 15px;
+  font-size: 11px;
+}
+
+.ni-field-item {
+  display: flex;
+  gap: 5px;
+  align-items: baseline;
+}
+
+.ni-field-item label {
+  font-weight: 500;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.ni-field-item span {
+  flex: 1;
+  padding-bottom: 2px;
+  border-bottom: 1px dotted #999;
+  text-align: right;
+}
+
+/* جدول */
+.ni-table-wrapper {
+  margin-bottom: 15px;
+  border: 1px solid #333;
+}
+
+.ni-table-new {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+}
+
+.ni-table-new th,
+.ni-table-new td {
+  border: 1px solid #333;
+  padding: 6px;
+  text-align: right;
+}
+
+.ni-table-new th {
+  background: #e8e8e8;
+  font-weight: bold;
+  color: #333;
+  height: 25px;
+}
+
+.ni-table-new td {
+  height: 24px;
+  vertical-align: middle;
+}
+
+.ni-col-row {
+  width: 25px;
+}
+
+.ni-col-qty {
+  width: 40px;
+  text-align: center;
+}
+
+.ni-col-unit {
+  width: 60px;
+  text-align: left;
+}
+
+.ni-col-total {
+  width: 70px;
+  text-align: left;
+  font-weight: 500;
+}
+
+.ni-row-num {
+  text-align: center;
+  font-weight: 500;
+}
+
+.ni-total-row {
+  background: #f0f0f0;
+  font-weight: bold;
+}
+
+/* بخش درخواست کننده */
+.ni-requester-section {
+  margin-bottom: 15px;
+  padding: 10px;
+  border: 1px solid #999;
+}
+
+.ni-section-label {
+  font-size: 11px;
+  font-weight: bold;
+  background: #e8e8e8;
+  padding: 4px 8px;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.ni-reason-box {
+  margin-bottom: 10px;
+}
+
+.ni-reason-label {
+  font-size: 11px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  display: block;
+}
+
+.ni-reason-content {
+  min-height: 30px;
+  border: 1px solid #ccc;
+  padding: 6px;
+  font-size: 10px;
+  line-height: 1.4;
+  text-align: right;
+}
+
+.ni-signature-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 0;
+  border-top: 1px solid #ddd;
+}
+
+.ni-signature-label {
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.ni-signature-space {
+  min-height: 40px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+}
+
+/* بخش تایید کننده */
+.ni-approver-section {
+  margin-bottom: 15px;
+  padding: 10px;
+  border: 1px solid #999;
+}
+
+.ni-comment-box {
+  margin-bottom: 10px;
+}
+
+.ni-comment-label {
+  font-size: 11px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  display: block;
+}
+
+.ni-comment-content {
+  min-height: 25px;
+  border: 1px solid #ccc;
+  padding: 6px;
+  font-size: 10px;
+  line-height: 1.4;
+  text-align: right;
+}
+
+.ni-approval-checkboxes {
+  display: flex;
+  gap: 20px;
+  margin: 10px 0;
+  padding: 8px 0;
+  border-top: 1px solid #ddd;
+  border-bottom: 1px solid #ddd;
+  font-size: 10px;
+}
+
+.ni-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-direction: row-reverse;
+  cursor: pointer;
+}
+
+.ni-checkbox {
+  font-size: 14px;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* توضیحات */
+.ni-notes-section {
+  padding: 10px;
+  border: 1px solid #999;
+  font-size: 10px;
+}
+
+.ni-notes-label {
+  font-weight: bold;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.ni-notes-content {
+  min-height: 20px;
+  border: 1px solid #ccc;
+  padding: 6px;
+  text-align: right;
+}
+
+/* ============================================================
+   NO INVOICE PREVIEW
+   ============================================================ */
+
+.no-invoice-preview-wrap {
+  margin-top: 20px;
+}
+
+.no-invoice-pages {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 1024px) {
+  .app-shell {
+    flex-direction: column;
+  }
+
+  .control-panel {
+    flex: 1;
+    max-height: none;
+  }
+
+  .preview-wrap {
+    flex: 1;
+  }
+
+  .three-col,
+  .ni-form-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .ni-requester-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .control-panel {
+    flex: 1;
+  }
+
+  .two-col,
+  .three-col,
+  .ni-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .paper {
+    padding: 10px;
+  }
+
+  .expense-table,
+  .ni-table-new {
+    font-size: 9px;
+  }
+
+  .expense-table th,
+  .expense-table td,
+  .ni-table-new th,
+  .ni-table-new td {
+    padding: 4px;
+  }
+}
+
+/* ============================================================
+   PRINT STYLES
+   ============================================================ */
+
+@media print {
+  body {
+    background: #fff;
+    margin: 0;
+    padding: 0;
+  }
+
+  .app-shell {
+    flex-direction: column;
+    gap: 0;
+    padding: 0;
+    max-width: 100%;
+  }
+
+  .paper,
+  .ni-copy {
+    box-shadow: none;
+    page-break-after: always;
+    margin: 0;
+    padding: 15px;
+    border-radius: 0;
+  }
+
+  .preview-label {
+    display: none;
+  }
+}
