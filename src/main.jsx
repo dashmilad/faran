@@ -1767,49 +1767,6 @@ function App() {
           </div>
 
 
-          <div className="ni-choice">
-
-            <b>
-              نتیجه تایید:
-            </b>
-
-            <label>
-              <input
-                type="radio"
-                checked={
-                  noInvoice.approved === true
-                }
-                onChange={() =>
-                  setNoInvoice({
-                    ...noInvoice,
-                    approved: true
-                  })
-                }
-              />
-
-              با صورت هزینه نامبرده موافقت میشود
-            </label>
-
-            <label>
-              <input
-                type="radio"
-                checked={
-                  noInvoice.approved === false
-                }
-                onChange={() =>
-                  setNoInvoice({
-                    ...noInvoice,
-                    approved: false
-                  })
-                }
-              />
-
-              موافقت نمیشود
-            </label>
-
-          </div>
-
-
           <div className="ni-items-editor">
 
             <table>
