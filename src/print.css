@@ -1,4 +1,9 @@
-/* چاپ حرفه‌ای فرم‌ها */
+/* =========================================
+   PRINT SETTINGS
+   فرم اصلی: A4 Landscape
+   فرم بدون فاکتور: A4 Portrait - دو عدد در هر برگ
+   ========================================= */
+
 @page main-form-page {
   size: A4 landscape;
   margin: 0;
@@ -10,67 +15,121 @@
 }
 
 @media print {
+
+  html,
   body {
     margin: 0 !important;
     padding: 0 !important;
     background: #fff !important;
+    width: 100% !important;
   }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* =========================================
+     FORM MAIN
+     ========================================= */
 
   .paper {
     page: main-form-page !important;
+
     width: 297mm !important;
     height: 210mm !important;
     min-height: 210mm !important;
+    max-height: 210mm !important;
+
     margin: 0 !important;
-    break-after: page !important;
-    page-break-after: always !important;
+    padding: 0 !important;
+
+    box-sizing: border-box !important;
+
     break-inside: avoid !important;
     page-break-inside: avoid !important;
-  }
 
-  .paper:last-of-type {
     break-after: page !important;
     page-break-after: always !important;
   }
+
+  /* =========================================
+     NO INVOICE CONTAINER
+     ========================================= */
 
   #no-invoice-print-area {
-    display: block !important;
+    page: no-invoice-page !important;
+
     width: 210mm !important;
+    height: auto !important;
+
     margin: 0 !important;
     padding: 0 !important;
+
+    display: block !important;
+    box-sizing: border-box !important;
   }
 
-  /* هر فرم بدون فاکتور تقریباً نصف A4 عمودی */
+  /*
+     هر فرم تقریباً نصف A4 است.
+     297mm / 2 = 148.5mm
+     کمی فضا برای فاصله و حاشیه نگه می‌داریم.
+  */
+
   #no-invoice-print-area .ni-copy {
-    page: no-invoice-page !important;
-    width: 210mm !important;
-    height: 145mm !important;
-    min-height: 145mm !important;
-    max-height: 145mm !important;
-    margin: 0 !important;
+
+    width: 204mm !important;
+    height: 142mm !important;
+    min-height: 142mm !important;
+    max-height: 142mm !important;
+
+    margin: 0 auto 5mm auto !important;
     padding: 0 !important;
-    overflow: hidden !important;
+
     box-sizing: border-box !important;
+
+    overflow: hidden !important;
+
     break-inside: avoid !important;
     page-break-inside: avoid !important;
+
     break-after: avoid !important;
     page-break-after: avoid !important;
+
+    transform: none !important;
   }
 
-  /* دو فرم در هر برگ A4؛ بعد از هر فرم دوم صفحه عوض شود */
+  /*
+     بعد از فرم دوم صفحه جدید
+  */
+
   #no-invoice-print-area .ni-copy:nth-child(2n) {
+    margin-bottom: 0 !important;
+
     break-after: page !important;
     page-break-after: always !important;
   }
 
+  /*
+     فرم آخر صفحه جدید ایجاد نکند
+  */
+
   #no-invoice-print-area .ni-copy:last-child {
+    margin-bottom: 0 !important;
+
     break-after: auto !important;
     page-break-after: auto !important;
   }
 
-  /* فشرده‌سازی عمودی برای اینکه کل فرم در نیمه صفحه جا شود */
+
+  /* =========================================
+     HEADER
+     ========================================= */
+
   #no-invoice-print-area .ni-header {
-    height: 16mm !important;
+    height: 17mm !important;
+    min-height: 17mm !important;
+    max-height: 17mm !important;
   }
 
   #no-invoice-print-area .ni-title {
@@ -80,112 +139,229 @@
   #no-invoice-print-area .ni-codes {
     font-size: 6px !important;
     line-height: 1.5 !important;
+    padding: 0 3mm !important;
   }
 
   #no-invoice-print-area .ni-faran-logo {
     width: 25mm !important;
     max-width: 90% !important;
+    height: auto !important;
   }
 
   #no-invoice-print-area .ni-page-info {
-    top: 17mm !important;
+    top: 18mm !important;
     font-size: 5px !important;
   }
+
+
+  /* =========================================
+     DATE
+     ========================================= */
 
   #no-invoice-print-area .ni-date-row {
     height: 5mm !important;
     min-height: 5mm !important;
-    font-size: 6px !important;
+
     padding: 0 3mm !important;
+
+    font-size: 6px !important;
   }
+
+
+  /* =========================================
+     REQUESTER
+     ========================================= */
 
   #no-invoice-print-area .ni-requester-row {
+
     height: 6mm !important;
     min-height: 6mm !important;
-    font-size: 5.5px !important;
+
     padding: 0 2mm !important;
+
     gap: 2px !important;
+
+    font-size: 5.5px !important;
+
+    white-space: nowrap !important;
+    overflow: hidden !important;
   }
 
+
+  /* =========================================
+     TABLE
+     ========================================= */
+
   #no-invoice-print-area .ni-table-wrap {
-    margin-top: 1mm !important;
+    margin-top: 0 !important;
   }
 
   #no-invoice-print-area .ni-table {
-    font-size: 5.5px !important;
+
+    width: 100% !important;
+
+    font-size: 6px !important;
+
+    table-layout: fixed !important;
   }
 
   #no-invoice-print-area .ni-table th,
   #no-invoice-print-area .ni-table td {
-    height: 5.5mm !important;
+
+    height: 6mm !important;
+    min-height: 6mm !important;
+
     padding: 0.5mm !important;
+
+    font-size: 6px !important;
+
+    line-height: 1.2 !important;
   }
 
   #no-invoice-print-area .ni-table th {
-    height: 6mm !important;
+    height: 6.5mm !important;
   }
 
   #no-invoice-print-area .ni-total-row td {
-    height: 5mm !important;
+    height: 5.5mm !important;
   }
+
+
+  /* =========================================
+     REASON
+     ========================================= */
 
   #no-invoice-print-area .ni-reason-row {
-    min-height: 11mm !important;
-    height: 11mm !important;
+
+    height: 12mm !important;
+    min-height: 12mm !important;
+    max-height: 12mm !important;
   }
+
+
+  /* =========================================
+     APPROVAL
+     ========================================= */
 
   #no-invoice-print-area .ni-approval-row {
-    min-height: 12mm !important;
-    height: 12mm !important;
+
+    height: 13mm !important;
+    min-height: 13mm !important;
+    max-height: 13mm !important;
   }
 
+
+  /* =========================================
+     LABELS
+     ========================================= */
+
   #no-invoice-print-area .ni-horizontal-label {
+
     font-size: 6px !important;
+
+    writing-mode: horizontal-tb !important;
+
+    white-space: nowrap !important;
   }
+
+
+  /* =========================================
+     CONTENT
+     ========================================= */
 
   #no-invoice-print-area .ni-reason-content,
   #no-invoice-print-area .ni-approval-content {
+
     padding: 1mm !important;
+
     font-size: 5.5px !important;
-    line-height: 1.4 !important;
+
+    line-height: 1.35 !important;
   }
 
+
+  /* =========================================
+     SIGNATURE
+     ========================================= */
+
   #no-invoice-print-area .ni-sign-cell {
+
     font-size: 5.5px !important;
-    line-height: 1.4 !important;
+
+    line-height: 1.35 !important;
   }
 
   #no-invoice-print-area .ni-sign-cell strong,
   #no-invoice-print-area .ni-sign-cell span {
+
     font-size: 5.5px !important;
   }
 
-  #no-invoice-print-area .ni-sign-cell span {
-    margin-top: 1mm !important;
-  }
+
+  /* =========================================
+     CHECK BOXES
+     ========================================= */
 
   #no-invoice-print-area .ni-checks {
+
     gap: 5mm !important;
+
     margin-top: 1mm !important;
   }
 
   #no-invoice-print-area .ni-checks i {
+
     width: 3mm !important;
     height: 3mm !important;
   }
 
   #no-invoice-print-area .ni-checks i.checked::after {
+
     font-size: 7px !important;
+
     line-height: 3mm !important;
   }
 
+
+  /* =========================================
+     NOTES
+     ========================================= */
+
   #no-invoice-print-area .ni-notes-row {
-    height: 5mm !important;
-    min-height: 5mm !important;
-    max-height: 5mm !important;
+
+    height: 6mm !important;
+    min-height: 6mm !important;
+    max-height: 6mm !important;
+
     padding: 0 2mm !important;
+
     font-size: 5.5px !important;
-    line-height: 5mm !important;
+
+    line-height: 6mm !important;
+
     overflow: hidden !important;
+  }
+
+
+  /* =========================================
+     PREVENT EXTRA PRINT ELEMENTS
+     ========================================= */
+
+  .no-print,
+  .control-panel,
+  .preview-label {
+    display: none !important;
+  }
+
+  .preview-wrap {
+
+    width: 100% !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .app-shell {
+    display: block !important;
   }
 }
