@@ -4,7 +4,7 @@ import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import './styles.css';
 
-const LOGO_SRC = '/logo.png';
+const LOGO_SRC = `${import.meta.env.BASE_URL}logo.png`;
 
 const emptyRow = (date = '') => ({
   date,
