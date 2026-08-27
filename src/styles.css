@@ -13,7 +13,7 @@ body { background: #e9edf2; }
 button, input, select { font: inherit; }
 
 .app-shell { min-height: 100vh; display: flex; flex-direction: row-reverse; gap: 22px; padding: 22px; align-items: flex-start; }
-.control-panel { width: 410px; flex: 0 0 410px; background: #fff; border: 1px solid #d6dbe1; border-radius: 16px; padding: 18px; box-shadow: 0 10px 30px rgba(0,0,0,.07); position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow: auto; }
+.control-panel { width: 450px; flex: 0 0 450px; background: #fff; border: 1px solid #d6dbe1; border-radius: 16px; padding: 18px; box-shadow: 0 10px 30px rgba(0,0,0,.07); position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow: auto; }
 .panel-title { font-size: 22px; font-weight: 800; margin-bottom: 3px; }
 .panel-subtitle { color: #69717c; font-size: 12px; margin-bottom: 18px; }
 .control-group { margin-bottom: 10px; }
