@@ -4,18 +4,10 @@ import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import './styles.css';
 
-/*
- * ============================================================
- * لوگوی فاران
- * ============================================================
- *
- * فایل لوگو باید در مسیر زیر باشد:
- * public/logo.png
- */
 const LOGO_SRC = '/logo.png';
 
-const emptyRow = () => ({
-  date: '',
+const emptyRow = (date = '') => ({
+  date,
   place: '',
   service: '',
   invoice: '',
@@ -23,2426 +15,300 @@ const emptyRow = () => ({
   amount: ''
 });
 
-const initialRows = Array.from({ length: 8 }, emptyRow);
+const initialRows = Array.from({ length: 8 }, () => emptyRow(''));
+
+const serviceOptions = ['تاکسی', 'ناهار', 'صبحانه', 'شام', 'پذیرایی', 'پارکینگ', 'بنزین', 'سوخت', 'بلیط', 'اقامت', 'هتل', 'مترو', 'اتوبوس', 'اسنپ', 'تپسی', 'سایر'];
 
 function numberValue(value) {
-  return Number(String(value ?? '').replace(/,/g, '')) || 0;
+  return Number(String(value ?? '').replace(/[٬,،\s]/g, '')) || 0;
 }
 
-function extractExpenseTitle(description) {
+function formatMoney(value) {
+  const n = numberValue(value);
+  return n ? new Intl.NumberFormat('fa-IR').format(n) : '';
+}
+
+function extractExpenseTitle(description, service) {
   const text = String(description || '').trim();
-
+  if (service && service !== 'سایر') return service;
   if (!text) return '';
-
-  const keywords = [
-    'تاکسی',
-    'ناهار',
-    'صبحانه',
-    'شام',
-    'پذیرایی',
-    'پارکینگ',
-    'بنزین',
-    'سوخت',
-    'بلیط',
-    'بلیت',
-    'اقامت',
-    'هتل',
-    'مترو',
-    'اتوبوس',
-    'اسنپ',
-    'تپسی'
-  ];
-
-  const found = keywords.find(keyword =>
-    text.includes(keyword)
-  );
-
-  return found || text;
+  return text.split(/[؛,،\-]/)[0].trim() || text;
 }
 
-function chunkArray(array, size) {
-  const result = [];
-
-  for (let i = 0; i < array.length; i += size) {
-    result.push(array.slice(i, i + size));
-  }
-
-  return result;
+function chunk(array, size) {
+  const out = [];
+  for (let i = 0; i < array.length; i += size) out.push(array.slice(i, i + size));
+  return out;
 }
 
 function App() {
   const [header, setHeader] = useState({
     title: 'فرم صورت ریز هزینه های تنخواه واحد خدمات',
     docCode: 'FI-B-FO-112/00',
-    serviceCode: 'FI-B-RE-001/00',
-    date: '1404/05/27',
-    reviewDate: ''
+    refCode: 'FI-B-RE-001/00',
+    date: '1405/  /  '
   });
 
   const [rows, setRows] = useState(initialRows);
-
+  const [signatures, setSignatures] = useState({ requester: '', confirmer: '', approver: '' });
   const [noInvoice, setNoInvoice] = useState({
     formCode: 'FI-B-FO-135/00',
-    referenceCode: 'FI-B-RE-001/00',
-    date: '1404/05/27',
+    refCode: 'FI-B-RE-001/00',
+    date: '1405/  /  ',
     requester: '',
     position: '',
     organization: '',
     reason: '',
-    approverComment: '',
-    approved: null,
     notes: ''
   });
-
-  const [noInvoiceItems, setNoInvoiceItems] = useState([]);
-
-  const [signatures, setSignatures] = useState({
-    requester: '',
-    confirmer: '',
-    issuer: ''
-  });
-
   const [busy, setBusy] = useState(false);
   const [noInvoiceBusy, setNoInvoiceBusy] = useState(false);
 
-  /*
-   * ============================================================
-   * جمع کل فرم اصلی
-   * ============================================================
-   */
-  const total = useMemo(() => {
-    return rows.reduce(
-      (sum, row) => sum + numberValue(row.amount),
-      0
-    );
-  }, [rows]);
+  const total = useMemo(() => rows.reduce((sum, row) => sum + numberValue(row.amount), 0), [rows]);
 
-  /*
-   * ============================================================
-   * ساخت خودکار فرم بدون فاکتور از فرم اصلی
-   * ============================================================
-   */
-  const derivedNoInvoiceItems = useMemo(() => {
-    return rows
-      .filter(
-        row =>
-          String(row.description || '').trim() &&
-          numberValue(row.amount) > 0
-      )
-      .map(row => ({
-        product: extractExpenseTitle(row.description),
-        provider: row.place || '',
-        qty: '1',
-        unitAmount: String(numberValue(row.amount)),
-        total: String(numberValue(row.amount)),
-        date: row.date || header.date
-      }));
-  }, [rows, header.date]);
+  const noInvoiceItems = useMemo(() => rows
+    .filter(row => String(row.description).trim() && numberValue(row.amount) > 0)
+    .map(row => ({
+      product: extractExpenseTitle(row.description, row.service),
+      provider: row.place,
+      date: row.date || header.date,
+      qty: '1',
+      unitAmount: String(numberValue(row.amount)),
+      total: String(numberValue(row.amount))
+    })), [rows, header.date]);
 
-  /*
-   * ============================================================
-   * هر فرم بدون فاکتور حداکثر ۳ ردیف دارد
-   * ============================================================
-   */
-  const noInvoiceForms = useMemo(() => {
-    /*
-     * نکته مهم:
-     * اگر هیچ هزینه‌ای وجود نداشته باشد،
-     * آرایه کاملاً خالی می‌ماند.
-     *
-     * بنابراین هیچ فرم بدون فاکتوری ساخته نمی‌شود.
-     */
-    if (derivedNoInvoiceItems.length === 0) {
-      return [];
-    }
+  const noInvoiceForms = useMemo(() => chunk(noInvoiceItems, 3), [noInvoiceItems]);
 
-    return chunkArray(derivedNoInvoiceItems, 3);
-  }, [derivedNoInvoiceItems]);
+  const updateHeader = (key, value) => setHeader(prev => ({ ...prev, [key]: value }));
 
-  /*
-   * ============================================================
-   * برای چاپ کلی:
-   * هر برگ A4 عمودی حداکثر ۲ فرم
-   * ============================================================
-   */
-  const noInvoicePrintSheets = useMemo(() => {
-    if (noInvoiceForms.length === 0) {
-      return [];
-    }
-
-    return chunkArray(noInvoiceForms, 2);
-  }, [noInvoiceForms]);
-
-  /*
-   * ============================================================
-   * فرمت مبلغ
-   * ============================================================
-   */
-  const formatMoney = value => {
-    const number = numberValue(value);
-
-    if (!number) {
-      return '';
-    }
-
-    return new Intl.NumberFormat('fa-IR').format(number);
+  const updateDate = value => {
+    setHeader(prev => ({ ...prev, date: value }));
+    setRows(prev => prev.map(row => ({ ...row, date: value })));
+    setNoInvoice(prev => ({ ...prev, date: value }));
   };
 
-  /*
-   * ============================================================
-   * بروزرسانی ردیف فرم اصلی
-   * ============================================================
-   */
   const updateRow = (index, key, value) => {
-    setRows(prev =>
-      prev.map((row, i) =>
-        i === index
-          ? {
-              ...row,
-              [key]: value
-            }
-          : row
-      )
-    );
+    setRows(prev => prev.map((row, i) => i === index ? { ...row, [key]: value } : row));
   };
 
-  /*
-   * ============================================================
-   * تغییر تاریخ اصلی
-   * ============================================================
-   */
-  const updateHeaderDate = value => {
-    setHeader(prev => ({
-      ...prev,
-      date: value
-    }));
+  const updateSignature = (key, value) => setSignatures(prev => ({ ...prev, [key]: value }));
+  const updateNoInvoice = (key, value) => setNoInvoice(prev => ({ ...prev, [key]: value }));
 
-    setRows(prev =>
-      prev.map(row => ({
-        ...row,
-        date: value
-      }))
-    );
-
-    setNoInvoice(prev => ({
-      ...prev,
-      date: value
-    }));
+  const reset = () => {
+    setRows(Array.from({ length: 8 }, () => emptyRow(header.date)));
+    setSignatures({ requester: '', confirmer: '', approver: '' });
+    setNoInvoice({ formCode: 'FI-B-FO-135/00', refCode: header.refCode, date: header.date, requester: '', position: '', organization: '', reason: '', notes: '' });
   };
 
-  /*
-   * ============================================================
-   * تغییر تاریخ فرم بدون فاکتور
-   * ============================================================
-   */
-  const updateNoInvoiceDate = value => {
-    setNoInvoice(prev => ({
-      ...prev,
-      date: value
-    }));
+  const waitForImages = async node => {
+    const images = [...node.querySelectorAll('img')];
+    await Promise.all(images.map(img => img.complete ? Promise.resolve() : new Promise(resolve => { img.onload = resolve; img.onerror = resolve; })));
   };
 
-  /*
-   * ============================================================
-   * بروزرسانی آیتم دستی فرم بدون فاکتور
-   * ============================================================
-   */
-  const updateNoInvoiceItem = (index, key, value) => {
-    setNoInvoiceItems(prev =>
-      prev.map((item, i) => {
-        if (i !== index) return item;
-
-        const next = {
-          ...item,
-          [key]: value
-        };
-
-        if (key === 'unitAmount' || key === 'qty') {
-          next.total = String(
-            numberValue(next.unitAmount) *
-              (numberValue(next.qty) || 1)
-          );
-        }
-
-        return next;
-      })
-    );
-  };
-
-  /*
-   * ============================================================
-   * ساخت اطلاعات فرم بدون فاکتور
-   * ============================================================
-   */
-  const syncNoInvoiceToMain = () => {
-    const items = rows
-      .filter(
-        row =>
-          String(row.description || '').trim() &&
-          numberValue(row.amount) > 0
-      )
-      .map(row => ({
-        product: extractExpenseTitle(row.description),
-        provider: row.place || '',
-        qty: '1',
-        unitAmount: String(numberValue(row.amount)),
-        total: String(numberValue(row.amount)),
-        date: row.date || header.date
-      }));
-
-    setNoInvoiceItems(items);
-
-    setNoInvoice(prev => ({
-      ...prev,
-      date: header.date
-    }));
-  };
-
-  /*
-   * ============================================================
-   * آماده‌سازی چاپ کلی
-   *
-   * مهم:
-   * چاپ بعد از بروزرسانی React انجام می‌شود.
-   * ============================================================
-   */
-  const printAllForms = () => {
-    syncNoInvoiceToMain();
-
-    setTimeout(() => {
-      window.print();
-    }, 300);
-  };
-
-  /*
-   * ============================================================
-   * چاپ فرم اصلی
-   * ============================================================
-   */
-  const printMainForm = () => {
-    window.print();
-  };
-
-  /*
-   * ============================================================
-   * PDF فرم اصلی
-   * ============================================================
-   */
-  const exportPdf = async () => {
-    const node = document.getElementById('print-area');
-
+  const exportMainPdf = async () => {
+    const node = document.getElementById('main-print');
     if (!node) return;
-
     setBusy(true);
-
     try {
-      const canvas = await html2canvas(node, {
-        scale: 2.5,
-        backgroundColor: '#fff',
-        useCORS: true
-      });
-
-      const pdf = new jsPDF({
-        orientation: 'landscape',
-        unit: 'mm',
-        format: 'a4',
-        compress: true
-      });
-
-      const pageW = 297;
-      const pageH = 210;
-      const margin = 6;
-
-      const ratio = Math.min(
-        (pageW - margin * 2) / canvas.width,
-        (pageH - margin * 2) / canvas.height
-      );
-
-      const w = canvas.width * ratio;
-      const h = canvas.height * ratio;
-
-      pdf.addImage(
-        canvas.toDataURL('image/jpeg', 0.95),
-        'JPEG',
-        (pageW - w) / 2,
-        (pageH - h) / 2,
-        w,
-        h,
-        undefined,
-        'FAST'
-      );
-
-      pdf.save(
-        `فرم-تنخواه-${header.date || 'بدون-تاریخ'}.pdf`
-      );
+      await waitForImages(node);
+      const canvas = await html2canvas(node, { scale: 3, backgroundColor: '#fff', useCORS: true, logging: false });
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4', compress: true });
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, 297, 210, undefined, 'FAST');
+      pdf.save(`فرم-تنخواه-${header.date || 'بدون-تاریخ'}.pdf`);
     } finally {
       setBusy(false);
     }
   };
 
-  /*
-   * ============================================================
-   * چاپ فرم بدون فاکتور
-   * ============================================================
-   */
-  const printNoInvoiceForm = () => {
-    /*
-     * اگر هزینه‌ای وجود ندارد،
-     * اصلاً چاپ انجام نشود.
-     */
-    if (derivedNoInvoiceItems.length === 0) {
-      return;
-    }
-
-    syncNoInvoiceToMain();
-
-    setTimeout(() => {
-      window.print();
-    }, 300);
-  };
-
-  /*
-   * ============================================================
-   * PDF فرم‌های بدون فاکتور
-   * ============================================================
-   */
   const exportNoInvoicePdf = async () => {
-    /*
-     * بدون هزینه هیچ PDF ساخته نمی‌شود.
-     */
-    if (derivedNoInvoiceItems.length === 0) {
-      return;
-    }
-
-    syncNoInvoiceToMain();
-
+    if (!noInvoiceForms.length) return;
     setNoInvoiceBusy(true);
-
     try {
-      const pages = noInvoiceForms;
-
-      if (pages.length === 0) {
-        return;
-      }
-
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-        compress: true
-      });
-
-      let addedPage = false;
-
-      for (
-        let pageIndex = 0;
-        pageIndex < pages.length;
-        pageIndex++
-      ) {
-        const node = document.getElementById(
-          `no-invoice-print-page-${pageIndex}`
-        );
-
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+      let first = true;
+      for (let i = 0; i < noInvoiceForms.length; i += 1) {
+        const node = document.getElementById(`no-invoice-${i}`);
         if (!node) continue;
-
-        const canvas = await html2canvas(node, {
-          scale: 2.5,
-          backgroundColor: '#fff',
-          useCORS: true
-        });
-
-        if (addedPage) {
-          pdf.addPage();
-        }
-
-        addedPage = true;
-
-        const pageW = 210;
-        const pageH = 297;
-        const margin = 5;
-
-        const ratio = Math.min(
-          (pageW - margin * 2) / canvas.width,
-          140 / canvas.height
-        );
-
-        const w = canvas.width * ratio;
-        const h = canvas.height * ratio;
-
-        pdf.addImage(
-          canvas.toDataURL('image/jpeg', 0.96),
-          'JPEG',
-          (pageW - w) / 2,
-          margin,
-          w,
-          h,
-          undefined,
-          'FAST'
-        );
+        await waitForImages(node);
+        const canvas = await html2canvas(node, { scale: 3, backgroundColor: '#fff', useCORS: true, logging: false });
+        if (!first) pdf.addPage();
+        first = false;
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, 210, 297, undefined, 'FAST');
       }
-
-      if (addedPage) {
-        pdf.save(
-          `فرم-صورت-هزینه-بدون-فاکتور-${
-            header.date || 'بدون-تاریخ'
-          }.pdf`
-        );
-      }
+      if (!first) pdf.save(`فرم-بدون-فاکتور-${header.date || 'بدون-تاریخ'}.pdf`);
     } finally {
       setNoInvoiceBusy(false);
     }
   };
 
-  /*
-   * ============================================================
-   * Reset
-   * ============================================================
-   */
-  const reset = () => {
-    const newDate = header.date;
-
-    setRows(
-      Array.from({ length: 8 }, () => ({
-        ...emptyRow(),
-        date: newDate
-      }))
-    );
-
-    setHeader(h => ({
-      ...h,
-      reviewDate: ''
-    }));
-
-    setNoInvoice({
-      formCode: 'FI-B-FO-135/00',
-      referenceCode: 'FI-B-RE-001/00',
-      date: newDate,
-      requester: '',
-      position: '',
-      organization: '',
-      reason: '',
-      approverComment: '',
-      approved: null,
-      notes: ''
-    });
-
-    setNoInvoiceItems([]);
-
-    setSignatures({
-      requester: '',
-      confirmer: '',
-      issuer: ''
-    });
-  };
-
-  /*
-   * ============================================================
-   * فرم بدون فاکتور
-   * ============================================================
-   */
-  const NoInvoiceCopy = ({
-    items,
-    pageIndex,
-    totalPages
-  }) => {
-    const pageTotal = items.reduce(
-      (sum, item) =>
-        sum + numberValue(item.total || item.unitAmount),
-      0
-    );
-
-    return (
-      <section
-        className="ni-copy"
-        id={`no-invoice-print-page-${pageIndex}`}
-      >
-        <div className="ni-header">
-          <div className="ni-codes">
-            <div>
-              کد فرم: <b>{noInvoice.formCode}</b>
-            </div>
-
-            <div>
-              کد سند مرجع:{' '}
-              <b>{noInvoice.referenceCode}</b>
-            </div>
-          </div>
-
-          <div className="ni-title">
-            فرم صورت هزینه بدون فاکتور
-          </div>
-
-          <div className="ni-logo">
-            <img
-              src={LOGO_SRC}
-              alt="فاران"
-              className="faran-logo ni-faran-logo"
-            />
-          </div>
-        </div>
-
-        {totalPages > 1 && (
-          <div className="ni-page-info">
-            صفحه {pageIndex + 1} از {totalPages}
-          </div>
-        )}
-
-        <div className="ni-date-row">
-          <span>
-            تاریخ:{' '}
-            {noInvoice.date ||
-              '........ / ........ / ........'}
-          </span>
-        </div>
-
-        <div className="ni-requester-row">
-          <span>
-            نام و نام خانوادگی درخواست کننده:
-          </span>
-
-          <b>
-            {noInvoice.requester ||
-              '................................................'}
-          </b>
-
-          <span>سمت:</span>
-
-          <b>
-            {noInvoice.position ||
-              '................................'}
-          </b>
-
-          <span>واحد سازمانی:</span>
-
-          <b>
-            {noInvoice.organization ||
-              '..............................'}
-          </b>
-        </div>
-
-        <div className="ni-table-wrap">
-          <table className="ni-table">
-            <thead>
-              <tr>
-                <th className="ni-col-row">ردیف</th>
-
-                <th>
-                  مشخصات کالا / خدمات
-                </th>
-
-                <th>
-                  آدرس ارائه دهنده کالا / خدمات
-                </th>
-
-                <th className="ni-col-qty">
-                  تعداد
-                </th>
-
-                <th className="ni-col-unit">
-                  مبلغ واحد
-                </th>
-
-                <th className="ni-col-total">
-                  مبلغ کل (ریال)
-                </th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {items.map((item, index) => (
-                <tr key={index}>
-                  <td>{index + 1}</td>
-
-                  <td>{item.product}</td>
-
-                  <td>{item.provider}</td>
-
-                  <td>{item.qty || '1'}</td>
-
-                  <td>
-                    {formatMoney(item.unitAmount)}
-                  </td>
-
-                  <td>
-                    {formatMoney(
-                      item.total || item.unitAmount
-                    )}
-                  </td>
-                </tr>
-              ))}
-
-              {Array.from({
-                length: Math.max(0, 3 - items.length)
-              }).map((_, index) => (
-                <tr key={`empty-${index}`}>
-                  <td>{items.length + index + 1}</td>
-                  <td></td>
-                  <td></td>
-                  <td>1</td>
-                  <td></td>
-                  <td></td>
-                </tr>
-              ))}
-
-              <tr className="ni-total-row">
-                <td colSpan="5">
-                  جمع کل (ریال)
-                </td>
-
-                <td>
-                  {formatMoney(pageTotal)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div className="ni-reason-row">
-          <div className="ni-horizontal-label">
-            درخواست کننده
-          </div>
-
-          <div className="ni-reason-content">
-            <div>
-              <b>
-                دلیل استفاده از کالا / خدمات :
-              </b>
-
-              <span>
-                {noInvoice.reason ||
-                  '....................................................................................................................'}
-              </span>
-            </div>
-
-            {!noInvoice.reason && (
-              <div>
-                ...................................................................................................................................................
-              </div>
-            )}
-          </div>
-
-          <div className="ni-sign-cell">
-            <div>
-              <strong>
-                امضاء درخواست کننده
-              </strong>
-
-              <br />
-
-              <span>
-                {signatures.requester}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="ni-approval-row">
-          <div className="ni-horizontal-label">
-            تایید کننده
-          </div>
-
-          <div className="ni-approval-content">
-            <div>
-              <b>اظهار نظر تایید کننده:</b>{' '}
-              {noInvoice.approverComment}
-            </div>
-
-            <div className="ni-checks">
-              <span>
-                با صورت هزینه نامبرده موافقت میشود
-
-                <i
-                  className={
-                    noInvoice.approved === true
-                      ? 'checked'
-                      : ''
-                  }
-                ></i>
-              </span>
-
-              <span>
-                موافقت نمیشود
-
-                <i
-                  className={
-                    noInvoice.approved === false
-                      ? 'checked'
-                      : ''
-                  }
-                ></i>
-              </span>
-            </div>
-          </div>
-
-          <div className="ni-sign-cell">
-            <div>
-              <strong>
-                امضاء تایید کننده
-              </strong>
-
-              <br />
-
-              <span>
-                {signatures.confirmer}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="ni-notes-row">
-          <b>توضیحات :</b>{' '}
-          {noInvoice.notes}
-        </div>
-      </section>
-    );
-  };
+  const printAll = () => window.print();
 
   return (
-    <div className="app-shell">
-
-      <style>{`
-
-        /* =====================================================
-           GENERAL
-           ===================================================== */
-
-        .faran-logo {
-          width: 42mm;
-          max-width: 100%;
-          height: auto;
-          object-fit: contain;
-          display: block;
-        }
-
-        .brand-logo {
-          width: 38mm;
-          max-width: 100%;
-          height: auto;
-          object-fit: contain;
-          display: block;
-        }
-
-        .ni-faran-logo {
-          width: 40mm;
-          max-width: 90%;
-        }
-
-        .no-invoice-editor {
-          border: 1px solid #999;
-          background: #f8f8f8;
-          padding: 14px;
-          margin-top: 10px;
-        }
-
-        .ni-form-grid {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 10px;
-        }
-
-        .ni-form-grid .wide {
-          grid-column: span 2;
-        }
-
-        .ni-items-editor {
-          margin-top: 12px;
-          overflow-x: auto;
-        }
-
-        .ni-items-editor table {
-          width: 100%;
-          border-collapse: collapse;
-          min-width: 760px;
-          direction: rtl;
-        }
-
-        .ni-items-editor th,
-        .ni-items-editor td {
-          border: 1px solid #aaa;
-          padding: 6px;
-          text-align: center;
-        }
-
-        .ni-items-editor input,
-        .ni-items-editor select {
-          width: 100%;
-          box-sizing: border-box;
-        }
-
-        .ni-actions {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-          margin-top: 12px;
-        }
-
-        .ni-choice {
-          display: flex;
-          gap: 16px;
-          align-items: center;
-          flex-wrap: wrap;
-          padding-top: 8px;
-        }
-
-        .ni-choice label {
-          display: flex;
-          gap: 5px;
-          align-items: center;
-          font-weight: normal;
-        }
-
-        #no-invoice-print-area {
-          direction: rtl;
-          background: #fff;
-        }
-
-        .ni-copy {
-          width: 100%;
-          min-height: 285mm;
-          box-sizing: border-box;
-          border: 1.4px solid #111;
-          padding: 0;
-          background: #fff;
-          margin-bottom: 9mm;
-          font-family: Tahoma, Arial, sans-serif;
-          color: #111;
-          position: relative;
-        }
-
-        .ni-header {
-          height: 31mm;
-          display: grid;
-          grid-template-columns: 27% 46% 27%;
-          border-bottom: 1.2px solid #111;
-        }
-
-        .ni-codes {
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          border-left: 1.2px solid #111;
-          font-size: 10px;
-          line-height: 1.9;
-          padding: 0 4mm;
-        }
-
-        .ni-title {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 18px;
-          font-weight: 800;
-          border-left: 1.2px solid #111;
-          text-align: center;
-        }
-
-        .ni-logo {
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-          padding: 2mm;
-          box-sizing: border-box;
-        }
-
-        .ni-page-info {
-          position: absolute;
-          top: 33mm;
-          left: 5mm;
-          font-size: 8px;
-        }
-
-        .ni-date-row {
-          height: 10mm;
-          border-bottom: 1px solid #111;
-          display: flex;
-          align-items: center;
-          justify-content: flex-start;
-          padding: 0 5mm;
-          font-size: 10px;
-        }
-
-        .ni-requester-row {
-          min-height: 12mm;
-          border-bottom: 1px solid #111;
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          padding: 0 4mm;
-          font-size: 9.5px;
-          white-space: nowrap;
-          overflow: hidden;
-        }
-
-        .ni-requester-row b {
-          font-weight: normal;
-          border-bottom: 1px dotted #111;
-          min-width: 40px;
-        }
-
-        .ni-table {
-          width: 100%;
-          border-collapse: collapse;
-          table-layout: fixed;
-          font-size: 9px;
-        }
-
-        .ni-table th,
-        .ni-table td {
-          border: 1px solid #777;
-          text-align: center;
-          vertical-align: middle;
-          height: 10mm;
-          padding: 1.5mm;
-          word-break: break-word;
-        }
-
-        .ni-table th {
-          height: 10mm;
-          font-weight: 800;
-        }
-
-        .ni-col-row {
-          width: 8%;
-        }
-
-        .ni-col-qty {
-          width: 9%;
-        }
-
-        .ni-col-unit {
-          width: 14%;
-        }
-
-        .ni-col-total {
-          width: 17%;
-        }
-
-        .ni-total-row td {
-          height: 8mm;
-          font-weight: 700;
-        }
-
-        .ni-reason-row {
-          min-height: 22mm;
-          display: grid;
-          grid-template-columns: 14% 66% 20%;
-        }
-
-        .ni-approval-row {
-          min-height: 24mm;
-          display: grid;
-          grid-template-columns: 14% 66% 20%;
-          border-top: 1px solid #111;
-        }
-
-        .ni-horizontal-label {
-          border-left: 1px solid #111;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          writing-mode: horizontal-tb;
-          font-weight: 800;
-          font-size: 10px;
-          white-space: nowrap;
-          text-align: center;
-        }
-
-        .ni-reason-content,
-        .ni-approval-content {
-          padding: 3mm;
-          line-height: 2.1;
-          font-size: 9px;
-        }
-
-        .ni-reason-content span {
-          margin-right: 5px;
-        }
-
-        .ni-sign-cell {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          text-align: center;
-          border-right: 1px solid #111;
-          font-size: 9px;
-          line-height: 2;
-        }
-
-        .ni-sign-cell strong,
-        .ni-sign-cell span {
-          font-size: 9px;
-        }
-
-        .ni-checks {
-          display: flex;
-          justify-content: center;
-          gap: 18mm;
-          margin-top: 3mm;
-        }
-
-        .ni-checks span {
-          display: flex;
-          align-items: center;
-          gap: 3mm;
-        }
-
-        .ni-checks i {
-          width: 5mm;
-          height: 5mm;
-          border: 1px solid #111;
-          display: inline-block;
-          position: relative;
-        }
-
-        .ni-checks i.checked::after {
-          content: '✓';
-          position: absolute;
-          inset: -1px 0 0 0;
-          text-align: center;
-          font-size: 12px;
-          font-style: normal;
-          line-height: 5mm;
-        }
-
-        .ni-notes-row {
-          min-height: 10mm;
-          border-top: 1px solid #111;
-          padding: 2mm 4mm;
-          font-size: 9px;
-          line-height: 2;
-        }
-
-        .ni-copy:last-child {
-          margin-bottom: 0;
-        }
-
-
-        /* =====================================================
-           PRINT
-           ===================================================== */
-
-        @page main-form-page {
-          size: A4 landscape;
-          margin: 0;
-        }
-
-        @page no-invoice-page {
-          size: A4 portrait;
-          margin: 0;
-        }
-
-        @media print {
-
-          html,
-          body {
-            margin: 0 !important;
-            padding: 0 !important;
-            width: 100% !important;
-            background: #fff !important;
-          }
-
-          *,
-          *::before,
-          *::after {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-
-          .no-print,
-          .control-panel,
-          .preview-label {
-            display: none !important;
-          }
-
-          .app-shell {
-            display: block !important;
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-
-          .preview-wrap {
-            display: block !important;
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-
-          /*
-           * -----------------------------------------------------
-           * فرم اصلی
-           * -----------------------------------------------------
-           */
-
-          #print-area {
-            page: main-form-page !important;
-
-            width: 287mm !important;
-            height: 200mm !important;
-
-            min-height: 200mm !important;
-            max-height: 200mm !important;
-
-            margin: 5mm auto !important;
-            padding: 0 !important;
-
-            box-sizing: border-box !important;
-
-            overflow: hidden !important;
-
-            break-inside: avoid !important;
-            page-break-inside: avoid !important;
-
-            break-after: page !important;
-            page-break-after: always !important;
-          }
-
-          /*
-           * -----------------------------------------------------
-           * محدوده فرم‌های بدون فاکتور
-           *
-           * بسیار مهم:
-           * این container خودش یک صفحه چاپی است.
-           * -----------------------------------------------------
-           */
-
-          #no-invoice-print-area {
-            page: no-invoice-page !important;
-
-            width: 210mm !important;
-            height: auto !important;
-
-            margin: 0 auto !important;
-            padding: 0 !important;
-
-            box-sizing: border-box !important;
-
-            display: block !important;
-          }
-
-          /*
-           * -----------------------------------------------------
-           * هر صفحه چاپی بدون فاکتور
-           *
-           * دو فرم داخل یک صفحه
-           * -----------------------------------------------------
-           */
-
-          .no-invoice-print-sheet {
-            width: 210mm !important;
-            height: 297mm !important;
-
-            margin: 0 !important;
-            padding: 5mm 6mm !important;
-
-            box-sizing: border-box !important;
-
-            display: flex !important;
-            flex-direction: column !important;
-            justify-content: flex-start !important;
-            align-items: center !important;
-
-            page: no-invoice-page !important;
-
-            break-after: page !important;
-            page-break-after: always !important;
-
-            break-inside: avoid !important;
-            page-break-inside: avoid !important;
-
-            overflow: hidden !important;
-          }
-
-          /*
-           * آخرین صفحه نباید صفحه خالی بعدی بسازد.
-           */
-
-          .no-invoice-print-sheet:last-child {
-            break-after: auto !important;
-            page-break-after: auto !important;
-          }
-
-          /*
-           * -----------------------------------------------------
-           * خود فرم بدون فاکتور
-           *
-           * ارتفاع دقیق نصف صفحه
-           * -----------------------------------------------------
-           */
-
-          .no-invoice-print-sheet .ni-copy {
-            width: 198mm !important;
-
-            height: 140mm !important;
-            min-height: 140mm !important;
-            max-height: 140mm !important;
-
-            margin: 0 auto 4mm auto !important;
-            padding: 0 !important;
-
-            box-sizing: border-box !important;
-
-            overflow: hidden !important;
-
-            flex: 0 0 140mm !important;
-
-            break-inside: avoid !important;
-            page-break-inside: avoid !important;
-
-            break-after: avoid !important;
-            page-break-after: avoid !important;
-
-            /*
-             * عمداً هیچ scale ای استفاده نشده.
-             */
-            transform: none !important;
-          }
-
-          .no-invoice-print-sheet .ni-copy:last-child {
-            margin-bottom: 0 !important;
-          }
-
-          /*
-           * -----------------------------------------------------
-           * فشرده‌سازی فرم بدون فاکتور
-           * -----------------------------------------------------
-           */
-
-          .no-invoice-print-sheet .ni-header {
-            height: 17mm !important;
-            min-height: 17mm !important;
-            max-height: 17mm !important;
-          }
-
-          .no-invoice-print-sheet .ni-title {
-            font-size: 10px !important;
-          }
-
-          .no-invoice-print-sheet .ni-codes {
-            font-size: 6px !important;
-            line-height: 1.5 !important;
-            padding: 0 3mm !important;
-          }
-
-          .no-invoice-print-sheet .ni-faran-logo {
-            width: 25mm !important;
-            max-width: 90% !important;
-            height: auto !important;
-          }
-
-          .no-invoice-print-sheet .ni-page-info {
-            top: 18mm !important;
-            font-size: 5px !important;
-          }
-
-          .no-invoice-print-sheet .ni-date-row {
-            height: 5mm !important;
-            min-height: 5mm !important;
-
-            padding: 0 3mm !important;
-
-            font-size: 6px !important;
-          }
-
-          .no-invoice-print-sheet .ni-requester-row {
-            height: 6mm !important;
-            min-height: 6mm !important;
-
-            font-size: 5.5px !important;
-
-            padding: 0 2mm !important;
-
-            gap: 2px !important;
-          }
-
-          .no-invoice-print-sheet .ni-table-wrap {
-            margin-top: 0 !important;
-          }
-
-          .no-invoice-print-sheet .ni-table {
-            font-size: 6px !important;
-          }
-
-          .no-invoice-print-sheet .ni-table th,
-          .no-invoice-print-sheet .ni-table td {
-            height: 6mm !important;
-
-            padding: 0.5mm !important;
-
-            font-size: 6px !important;
-
-            line-height: 1.2 !important;
-          }
-
-          .no-invoice-print-sheet .ni-table th {
-            height: 6.5mm !important;
-          }
-
-          .no-invoice-print-sheet .ni-total-row td {
-            height: 5.5mm !important;
-          }
-
-          .no-invoice-print-sheet .ni-reason-row {
-            min-height: 12mm !important;
-            height: 12mm !important;
-            max-height: 12mm !important;
-          }
-
-          .no-invoice-print-sheet .ni-approval-row {
-            min-height: 13mm !important;
-            height: 13mm !important;
-            max-height: 13mm !important;
-          }
-
-          .no-invoice-print-sheet .ni-horizontal-label {
-            font-size: 6px !important;
-          }
-
-          .no-invoice-print-sheet .ni-reason-content,
-          .no-invoice-print-sheet .ni-approval-content {
-            padding: 1mm !important;
-
-            font-size: 5.5px !important;
-
-            line-height: 1.35 !important;
-          }
-
-          .no-invoice-print-sheet .ni-sign-cell {
-            font-size: 5.5px !important;
-
-            line-height: 1.35 !important;
-          }
-
-          .no-invoice-print-sheet .ni-sign-cell strong,
-          .no-invoice-print-sheet .ni-sign-cell span {
-            font-size: 5.5px !important;
-          }
-
-          .no-invoice-print-sheet .ni-checks {
-            gap: 5mm !important;
-            margin-top: 1mm !important;
-          }
-
-          .no-invoice-print-sheet .ni-checks i {
-            width: 3mm !important;
-            height: 3mm !important;
-          }
-
-          .no-invoice-print-sheet .ni-checks i.checked::after {
-            font-size: 7px !important;
-            line-height: 3mm !important;
-          }
-
-          .no-invoice-print-sheet .ni-notes-row {
-            height: 6mm !important;
-            min-height: 6mm !important;
-            max-height: 6mm !important;
-
-            padding: 0 2mm !important;
-
-            font-size: 5.5px !important;
-
-            line-height: 6mm !important;
-
-            overflow: hidden !important;
-          }
-        }
-
-
-        /* =====================================================
-           RESPONSIVE
-           ===================================================== */
-
-        @media (max-width: 900px) {
-
-          .ni-form-grid {
-            grid-template-columns: 1fr 1fr;
-          }
-
-          .ni-form-grid .wide {
-            grid-column: span 2;
-          }
-
-          .ni-header {
-            grid-template-columns: 25% 50% 25%;
-          }
-
-          .ni-title {
-            font-size: 15px;
-          }
-
-          .ni-faran-logo {
-            width: 34mm;
-          }
-        }
-
-        @media (max-width: 600px) {
-
-          .app-shell {
-            display: block !important;
-          }
-
-          .control-panel {
-            width: 100% !important;
-            box-sizing: border-box;
-          }
-
-          .preview-wrap {
-            width: 100% !important;
-            overflow-x: auto;
-          }
-
-          .ni-form-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .ni-form-grid .wide {
-            grid-column: span 1;
-          }
-
-          .ni-items-editor {
-            overflow-x: auto;
-          }
-
-          .ni-items-editor table {
-            min-width: 720px;
-          }
-
-          .ni-copy {
-            min-width: 700px;
-          }
-
-          .ni-requester-row {
-            font-size: 8px;
-          }
-
-          .ni-title {
-            font-size: 12px;
-          }
-
-          .ni-faran-logo {
-            width: 27mm;
-          }
-        }
-
-      `}</style>
-
-
-      {/* =====================================================
-          CONTROL PANEL
-          ===================================================== */}
-
+    <div className="app-shell" dir="rtl">
       <aside className="control-panel no-print">
+        <div className="panel-title">فرم صورت هزینه</div>
+        <div className="panel-subtitle">نسخه طراحی‌شده برای چاپ A4</div>
 
-        <div className="panel-title">
-          فرم ثبت هزینه
+        <div className="control-group">
+          <label>تاریخ فرم</label>
+          <input value={header.date} onChange={e => updateDate(e.target.value)} placeholder="1405/  /  " />
+        </div>
+        <div className="control-grid">
+          <div className="control-group"><label>کد سند</label><input value={header.docCode} onChange={e => updateHeader('docCode', e.target.value)} /></div>
+          <div className="control-group"><label>کد سند مرجع</label><input value={header.refCode} onChange={e => updateHeader('refCode', e.target.value)} /></div>
         </div>
 
-        <p className="hint">
-          مبنای فرم بدون فاکتور، ردیف‌های فرم اصلی است.
-          هر هزینه‌ای که در شرح هزینه فرم اصلی وارد شود
-          و مبلغ داشته باشد، به فرم بدون فاکتور منتقل می‌شود.
-        </p>
-
-
-        {/* =================================================
-            MAIN HEADER
-            ================================================= */}
-
-        <section>
-
-          <h3>
-            مشخصات سربرگ فرم اصلی
-          </h3>
-
-          <label>
-            عنوان فرم
-
-            <input
-              value={header.title}
-              onChange={e =>
-                setHeader({
-                  ...header,
-                  title: e.target.value
-                })
-              }
-            />
-          </label>
-
-          <div className="two-col">
-
-            <label>
-              کد سند
-
-              <input
-                value={header.docCode}
-                onChange={e =>
-                  setHeader({
-                    ...header,
-                    docCode: e.target.value
-                  })
-                }
-              />
-            </label>
-
-            <label>
-              کد سند مرجع
-
-              <input
-                value={header.serviceCode}
-                onChange={e =>
-                  setHeader({
-                    ...header,
-                    serviceCode: e.target.value
-                  })
-                }
-              />
-            </label>
-
-          </div>
-
-          <div className="two-col">
-
-            <label>
-              تاریخ
-
-              <input
-                value={header.date}
-                onChange={e =>
-                  updateHeaderDate(e.target.value)
-                }
-              />
-            </label>
-
-            <label>
-              تاریخ واریز
-
-              <input
-                value={header.reviewDate}
-                onChange={e =>
-                  setHeader({
-                    ...header,
-                    reviewDate: e.target.value
-                  })
-                }
-              />
-            </label>
-
-          </div>
-
-        </section>
-
-
-        {/* =================================================
-            MAIN ROWS
-            ================================================= */}
-
-        <section>
-
-          <h3>
-            ردیف‌های فرم اصلی
-          </h3>
-
-          <div className="mobile-table">
-
-            {rows.map((r, i) => (
-
-              <div
-                className="row-editor"
-                key={i}
-              >
-
-                <b>
-                  ردیف {i + 1}
-                </b>
-
-                <input
-                  placeholder="تاریخ"
-                  value={r.date}
-                  onChange={e =>
-                    updateRow(
-                      i,
-                      'date',
-                      e.target.value
-                    )
-                  }
-                />
-
-                <input
-                  placeholder="محل مراجعه (بانک/شرکت)"
-                  value={r.place}
-                  onChange={e =>
-                    updateRow(
-                      i,
-                      'place',
-                      e.target.value
-                    )
-                  }
-                />
-
-                <select
-                  value={r.service}
-                  onChange={e =>
-                    updateRow(
-                      i,
-                      'service',
-                      e.target.value
-                    )
-                  }
-                >
-
-                  <option value="">
-                    نوع خدمات
-                  </option>
-
-                  <option value="نصب اولیه">
-                    نصب اولیه
-                  </option>
-
-                  <option value="پی ام">
-                    پی ام
-                  </option>
-
-                  <option value="بازدید فنی">
-                    بازدید فنی
-                  </option>
-
-                  <option value="بازدید فروش">
-                    بازدید فروش
-                  </option>
-
-                </select>
-
-                <input
-                  placeholder="شماره قرارداد / فاکتور"
-                  value={r.invoice}
-                  onChange={e =>
-                    updateRow(
-                      i,
-                      'invoice',
-                      e.target.value
-                    )
-                  }
-                />
-
-                <input
-                  placeholder="شرح هزینه — مثال: تاکسی"
-                  value={r.description}
-                  onChange={e =>
-                    updateRow(
-                      i,
-                      'description',
-                      e.target.value
-                    )
-                  }
-                />
-
-                <input
-                  inputMode="numeric"
-                  placeholder="مبلغ (ریال)"
-                  value={r.amount}
-                  onChange={e =>
-                    updateRow(
-                      i,
-                      'amount',
-                      e.target.value
-                    )
-                  }
-                />
-
-              </div>
-
-            ))}
-
-          </div>
-
-        </section>
-
-
-        {/* =================================================
-            NO INVOICE EDITOR
-            ================================================= */}
-
-        <section className="no-invoice-editor">
-
-          <h3>
-            فرم صورت هزینه بدون فاکتور
-          </h3>
-
-          <p className="hint">
-            این فرم به صورت خودکار از فرم اصلی ساخته می‌شود.
-            هر فرم حداکثر ۳ ردیف دارد.
-          </p>
-
-          <div className="ni-form-grid">
-
-            <label>
-              کد فرم
-
-              <input
-                value={noInvoice.formCode}
-                onChange={e =>
-                  setNoInvoice({
-                    ...noInvoice,
-                    formCode: e.target.value
-                  })
-                }
-              />
-            </label>
-
-            <label>
-              کد سند مرجع
-
-              <input
-                value={noInvoice.referenceCode}
-                onChange={e =>
-                  setNoInvoice({
-                    ...noInvoice,
-                    referenceCode: e.target.value
-                  })
-                }
-              />
-            </label>
-
-            <label>
-              تاریخ
-
-              <input
-                value={noInvoice.date}
-                onChange={e =>
-                  updateNoInvoiceDate(
-                    e.target.value
-                  )
-                }
-              />
-            </label>
-
-            <label>
-              نام و نام خانوادگی درخواست کننده
-
-              <input
-                value={noInvoice.requester}
-                onChange={e =>
-                  setNoInvoice({
-                    ...noInvoice,
-                    requester: e.target.value
-                  })
-                }
-              />
-            </label>
-
-            <label>
-              سمت
-
-              <input
-                value={noInvoice.position}
-                onChange={e =>
-                  setNoInvoice({
-                    ...noInvoice,
-                    position: e.target.value
-                  })
-                }
-              />
-            </label>
-
-            <label>
-              واحد سازمانی
-
-              <input
-                value={noInvoice.organization}
-                onChange={e =>
-                  setNoInvoice({
-                    ...noInvoice,
-                    organization: e.target.value
-                  })
-                }
-              />
-            </label>
-
-            <label className="wide">
-              دلیل استفاده از کالا / خدمات
-
-              <input
-                value={noInvoice.reason}
-                onChange={e =>
-                  setNoInvoice({
-                    ...noInvoice,
-                    reason: e.target.value
-                  })
-                }
-              />
-            </label>
-
-            <label className="wide">
-              اظهار نظر تایید کننده
-
-              <input
-                value={noInvoice.approverComment}
-                onChange={e =>
-                  setNoInvoice({
-                    ...noInvoice,
-                    approverComment: e.target.value
-                  })
-                }
-              />
-            </label>
-
-            <label className="wide">
-              توضیحات
-
-              <input
-                value={noInvoice.notes}
-                onChange={e =>
-                  setNoInvoice({
-                    ...noInvoice,
-                    notes: e.target.value
-                  })
-                }
-              />
-            </label>
-
-          </div>
-
-
-          <div className="ni-items-editor">
-
-            <table>
-
-              <thead>
-
-                <tr>
-                  <th>ردیف</th>
-                  <th>مشخصات کالا / خدمات</th>
-                  <th>
-                    آدرس ارائه دهنده کالا / خدمات
-                  </th>
-                  <th>تعداد</th>
-                  <th>مبلغ واحد</th>
-                  <th>مبلغ کل (ریال)</th>
-                </tr>
-
-              </thead>
-
-              <tbody>
-
-                {derivedNoInvoiceItems.length === 0 ? (
-
-                  <tr>
-                    <td colSpan="6">
-                      هنوز هزینه‌ای از فرم اصلی
-                      برای فرم بدون فاکتور وجود ندارد.
-                    </td>
-                  </tr>
-
-                ) : (
-
-                  derivedNoInvoiceItems.map(
-                    (item, i) => (
-
-                      <tr key={i}>
-
-                        <td>
-                          {i + 1}
-                        </td>
-
-                        <td>
-                          {item.product}
-                        </td>
-
-                        <td>
-                          {item.provider}
-                        </td>
-
-                        <td>
-                          {item.qty}
-                        </td>
-
-                        <td>
-                          {formatMoney(
-                            item.unitAmount
-                          )}
-                        </td>
-
-                        <td>
-                          {formatMoney(
-                            item.total
-                          )}
-                        </td>
-
-                      </tr>
-
-                    )
-                  )
-
-                )}
-
-              </tbody>
-
-            </table>
-
-          </div>
-
-
-          <div
-            style={{
-              marginTop: '10px',
-              padding: '10px',
-              background: '#eef7ff',
-              border: '1px solid #b7d7ef',
-              borderRadius: '6px'
-            }}
-          >
-
-            <b>
-              تعداد فرم‌های بدون فاکتور:
-            </b>{' '}
-
-            {noInvoiceForms.length}
-
-            <span
-              style={{
-                marginRight: '20px'
-              }}
-            >
-
-              <b>
-                تعداد کل هزینه‌ها:
-              </b>{' '}
-
-              {derivedNoInvoiceItems.length}
-
-            </span>
-
-          </div>
-
-
-          <div className="ni-actions">
-
-            <button
-              className="primary"
-              onClick={syncNoInvoiceToMain}
-            >
-              ↔ بروزرسانی فرم بدون فاکتور
-            </button>
-
-            <button
-              onClick={printNoInvoiceForm}
-              disabled={
-                derivedNoInvoiceItems.length === 0
-              }
-            >
-              🖨 چاپ فرم بدون فاکتور
-            </button>
-
-            <button
-              className="primary"
-              onClick={exportNoInvoicePdf}
-              disabled={
-                noInvoiceBusy ||
-                derivedNoInvoiceItems.length === 0
-              }
-            >
-              {noInvoiceBusy
-                ? 'در حال ساخت PDF…'
-                : '📄 PDF فرم بدون فاکتور'}
-            </button>
-
-          </div>
-
-        </section>
-
-
-        {/* =================================================
-            SIGNATURES
-            ================================================= */}
-
-        <section>
-
-          <h3>
-            امضاها
-          </h3>
-
-          <div className="three-col">
-
-            <label>
-              امضاء درخواست کننده
-
-              <input
-                value={signatures.requester}
-                onChange={e =>
-                  setSignatures({
-                    ...signatures,
-                    requester: e.target.value
-                  })
-                }
-              />
-            </label>
-
-            <label>
-              امضاء تایید کننده
-
-              <input
-                value={signatures.confirmer}
-                onChange={e =>
-                  setSignatures({
-                    ...signatures,
-                    confirmer: e.target.value
-                  })
-                }
-              />
-            </label>
-
-            <label>
-              امضاء تصویب کننده
-
-              <input
-                value={signatures.issuer}
-                onChange={e =>
-                  setSignatures({
-                    ...signatures,
-                    issuer: e.target.value
-                  })
-                }
-              />
-            </label>
-
-          </div>
-
-        </section>
-
-
-        {/* =================================================
-            PRINT BUTTONS
-            ================================================= */}
-
-        <div className="actions">
-
-          <button
-            className="primary"
-            onClick={printAllForms}
-          >
-            🖨 چاپ کلی همه فرم‌ها
-          </button>
-
-          <button
-            onClick={printMainForm}
-          >
-            🖨 چاپ فقط فرم اصلی
-          </button>
-
-          <button
-            className="primary"
-            onClick={exportPdf}
-            disabled={busy}
-          >
-            {busy
-              ? 'در حال ساخت PDF…'
-              : '📄 خروجی PDF فرم اصلی'}
-          </button>
-
-          <button
-            className="ghost"
-            onClick={reset}
-          >
-            پاک کردن اطلاعات
-          </button>
-
+        <div className="section-label">اطلاعات ۸ ردیف هزینه</div>
+        <div className="editor-table">
+          {rows.map((row, index) => (
+            <div className="editor-row" key={index}>
+              <span>{index + 1}</span>
+              <input value={row.place} onChange={e => updateRow(index, 'place', e.target.value)} placeholder="محل / شرکت" />
+              <select value={row.service} onChange={e => updateRow(index, 'service', e.target.value)}>
+                <option value="">نوع خدمات</option>
+                {serviceOptions.map(option => <option key={option}>{option}</option>)}
+              </select>
+              <input value={row.invoice} onChange={e => updateRow(index, 'invoice', e.target.value)} placeholder="شماره" />
+              <input className="description-input" value={row.description} onChange={e => updateRow(index, 'description', e.target.value)} placeholder="شرح هزینه" />
+              <input value={row.amount} onChange={e => updateRow(index, 'amount', e.target.value)} inputMode="numeric" placeholder="مبلغ" />
+            </div>
+          ))}
         </div>
 
+        <div className="section-label">امضاها</div>
+        <div className="control-grid three">
+          <div className="control-group"><label>تنظیم‌کننده</label><input value={signatures.requester} onChange={e => updateSignature('requester', e.target.value)} /></div>
+          <div className="control-group"><label>تأییدکننده</label><input value={signatures.confirmer} onChange={e => updateSignature('confirmer', e.target.value)} /></div>
+          <div className="control-group"><label>تصویب‌کننده</label><input value={signatures.approver} onChange={e => updateSignature('approver', e.target.value)} /></div>
+        </div>
+
+        <div className="section-label">فرم بدون فاکتور</div>
+        <div className="control-grid">
+          <div className="control-group"><label>درخواست‌کننده</label><input value={noInvoice.requester} onChange={e => updateNoInvoice('requester', e.target.value)} /></div>
+          <div className="control-group"><label>سمت</label><input value={noInvoice.position} onChange={e => updateNoInvoice('position', e.target.value)} /></div>
+          <div className="control-group"><label>واحد / سازمان</label><input value={noInvoice.organization} onChange={e => updateNoInvoice('organization', e.target.value)} /></div>
+          <div className="control-group"><label>علت عدم ارائه فاکتور</label><input value={noInvoice.reason} onChange={e => updateNoInvoice('reason', e.target.value)} /></div>
+        </div>
+
+        <div className="action-grid">
+          <button onClick={exportMainPdf} disabled={busy}>{busy ? 'در حال ساخت PDF...' : 'PDF فرم اصلی'}</button>
+          <button onClick={exportNoInvoicePdf} disabled={noInvoiceBusy || !noInvoiceForms.length}>{noInvoiceBusy ? 'در حال ساخت...' : `PDF بدون فاکتور (${noInvoiceForms.length})`}</button>
+          <button onClick={printAll}>چاپ</button>
+          <button className="secondary" onClick={reset}>پاک کردن اطلاعات</button>
+        </div>
       </aside>
 
+      <main className="preview-area">
+        <div className="preview-note no-print">پیش‌نمایش واقعی فرم — A4 افقی</div>
 
-      {/* =====================================================
-          PREVIEW
-          ===================================================== */}
-
-      <main className="preview-wrap">
-
-        <div className="preview-label no-print">
-          پیش‌نمایش فرم اصلی
-        </div>
-
-
-        {/* =================================================
-            MAIN FORM
-            ================================================= */}
-
-        <div
-          id="print-area"
-          className="paper"
-        >
-
-          <header className="form-header">
-
-            <div className="brand">
-
-              <img
-                src={LOGO_SRC}
-                alt="فاران"
-                className="faran-logo brand-logo"
-              />
-
-            </div>
-
-            <div className="header-title">
-              {header.title}
-            </div>
-
-            <div className="header-codes">
-
-              <div>
-                کد سند :{' '}
-                <b>{header.docCode}</b>
+        <section className="paper main-paper" id="main-print">
+          <div className="form-frame">
+            <header className="main-header">
+              <div className="header-codes">
+                <div>کد سند: <b>{header.docCode}</b></div>
+                <div>کد سند مرجع: <b>{header.refCode}</b></div>
+                <div>تاریخ: <b>{header.date}</b></div>
               </div>
+              <div className="header-title">{header.title}</div>
+              <div className="header-logo"><img src={LOGO_SRC} alt="فاران" /></div>
+            </header>
 
-              <div>
-                کد سند مرجع :{' '}
-                <b>{header.serviceCode}</b>
-              </div>
-
-              <div>
-                تاریخ :{' '}
-                <b>{header.date}</b>
-              </div>
-
-            </div>
-
-          </header>
-
-
-          <table className="expense-table">
-
-            <thead>
-
-              <tr>
-
-                <th className="narrow">
-                  ردیف
-                </th>
-
-                <th>
-                  تاریخ
-                </th>
-
-                <th>
-                  محل مراجعه
-                  <br />
-                  (بانک / شرکت)
-                </th>
-
-                <th>
-                  نوع خدمات
-                </th>
-
-                <th>
-                  شماره قرارداد / فاکتور
-                </th>
-
-                <th>
-                  شرح هزینه
-                </th>
-
-                <th>
-                  مبلغ هزینه (ریال)
-                </th>
-
-              </tr>
-
-            </thead>
-
-
-            <tbody>
-
-              {rows.map((r, i) => (
-
-                <tr key={i}>
-
-                  <td>
-                    {i + 1}
-                  </td>
-
-                  <td>
-                    {r.date}
-                  </td>
-
-                  <td>
-                    {r.place}
-                  </td>
-
-                  <td>
-                    {r.service}
-                  </td>
-
-                  <td>
-                    {r.invoice}
-                  </td>
-
-                  <td className="description">
-                    {r.description}
-                  </td>
-
-                  <td>
-                    {formatMoney(r.amount)}
-                  </td>
-
+            <table className="expense-table">
+              <colgroup>
+                <col className="col-row" /><col className="col-date" /><col className="col-place" /><col className="col-service" /><col className="col-invoice" /><col className="col-description" /><col className="col-amount" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>ردیف</th>
+                  <th>تاریخ</th>
+                  <th>محل مراجعه/بانک/شرکت</th>
+                  <th>نوع خدمات</th>
+                  <th>شماره قرارداد-فاکتور</th>
+                  <th>شرح هزینه</th>
+                  <th>مبلغ هزینه (ریال)</th>
                 </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, index) => (
+                  <tr key={index}>
+                    <td>{index + 1}</td>
+                    <td>{row.date || header.date}</td>
+                    <td>{row.place}</td>
+                    <td>{row.service}</td>
+                    <td>{row.invoice}</td>
+                    <td className="description-cell">{row.description}</td>
+                    <td className="amount-cell">{formatMoney(row.amount)}</td>
+                  </tr>
+                ))}
+                <tr className="total-row">
+                  <td colSpan="5"></td>
+                  <td className="total-label">جمع کل هزینه:</td>
+                  <td className="amount-cell">{formatMoney(total)}</td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr><td colSpan="7">تاریخ واریز: ............................................................</td></tr>
+              </tfoot>
+            </table>
 
-              ))}
-
-
-              <tr className="total-row">
-
-                <td colSpan="6">
-                  جمع کل هزینه :
-                </td>
-
-                <td>
-                  {formatMoney(total)}
-                </td>
-
-              </tr>
-
-
-              <tr className="review-row">
-
-                <td colSpan="7">
-                  تاریخ واریز:{' '}
-                  {header.reviewDate}
-                </td>
-
-              </tr>
-
-            </tbody>
-
-          </table>
-
-
-          <div className="signatures">
-
-            <div>
-
-              <span>
-                تنظیم کننده :
-              </span>
-
-              <strong>
-                {signatures.requester}
-              </strong>
-
-              <em>
-                نام و امضاء
-              </em>
-
+            <div className="signature-row">
+              <div><span>نام و امضاء<br />تنظیم‌کننده:</span><b>{signatures.requester}</b></div>
+              <div><span>نام و امضاء<br />تأییدکننده:</span><b>{signatures.confirmer}</b></div>
+              <div><span>نام و امضاء<br />تصویب‌کننده:</span><b>{signatures.approver}</b></div>
             </div>
-
-            <div>
-
-              <span>
-                تایید کننده :
-              </span>
-
-              <strong>
-                {signatures.confirmer}
-              </strong>
-
-              <em>
-                نام و امضاء
-              </em>
-
-            </div>
-
-            <div>
-
-              <span>
-                تصویب کننده :
-              </span>
-
-              <strong>
-                {signatures.issuer}
-              </strong>
-
-              <em>
-                نام و امضاء
-              </em>
-
-            </div>
-
           </div>
+        </section>
 
-        </div>
-
-
-        {/* =================================================
-            NO INVOICE FORMS
-            ================================================= */}
-
-        <div className="no-invoice-preview-wrap">
-
-          <div className="preview-label no-print">
-            پیش‌نمایش فرم‌های هزینه بدون فاکتور
-          </div>
-
-          {/*
-           * اگر هیچ هزینه‌ای نیست:
-           * اصلاً فرم بدون فاکتور render نمی‌شود.
-           */}
-
-          {noInvoiceForms.length > 0 && (
-
-            <div id="no-invoice-print-area">
-
-              {/*
-               * هر no-invoice-print-sheet = یک برگ A4
-               *
-               * داخل هر برگ حداکثر دو فرم قرار می‌گیرد.
-               */}
-
-              {noInvoicePrintSheets.map(
-                (sheet, sheetIndex) => (
-
-                  <div
-                    className="no-invoice-print-sheet"
-                    key={sheetIndex}
-                  >
-
-                    {sheet.map(
-                      (pageItems, localIndex) => {
-
-                        const globalIndex =
-                          sheetIndex * 2 +
-                          localIndex;
-
-                        return (
-                          <NoInvoiceCopy
-                            key={globalIndex}
-                            items={pageItems}
-                            pageIndex={globalIndex}
-                            totalPages={
-                              noInvoiceForms.length
-                            }
-                          />
-                        );
-                      }
-                    )}
-
-                  </div>
-
-                )
-              )}
-
-            </div>
-
-          )}
-
-        </div>
-
+        {noInvoiceForms.map((items, pageIndex) => (
+          <NoInvoiceForm key={pageIndex} items={items} pageIndex={pageIndex} noInvoice={noInvoice} header={header} />
+        ))}
       </main>
-
     </div>
   );
 }
 
-createRoot(
-  document.getElementById('root')
-).render(<App />);
+function NoInvoiceForm({ items, pageIndex, noInvoice, header }) {
+  const total = items.reduce((sum, item) => sum + numberValue(item.total), 0);
+  return (
+    <section className="paper no-invoice-paper" id={`no-invoice-${pageIndex}`}>
+      <div className="ni-frame">
+        <header className="ni-top">
+          <div className="ni-code-box">
+            <div>کد فرم: <b>{noInvoice.formCode}</b></div>
+            <div>کد سند مرجع: <b>{noInvoice.refCode || header.refCode}</b></div>
+            <div>تاریخ: <b>{noInvoice.date}</b></div>
+          </div>
+          <div className="ni-title">فرم صورت هزینه بدون فاکتور</div>
+          <div className="ni-logo"><img src={LOGO_SRC} alt="فاران" /></div>
+        </header>
+
+        <div className="ni-fields">
+          <div><span>درخواست‌کننده:</span><b>{noInvoice.requester}</b></div>
+          <div><span>سمت:</span><b>{noInvoice.position}</b></div>
+          <div><span>واحد/سازمان:</span><b>{noInvoice.organization}</b></div>
+          <div className="ni-reason"><span>علت عدم ارائه فاکتور:</span><b>{noInvoice.reason}</b></div>
+        </div>
+
+        <table className="ni-table">
+          <colgroup><col style={{ width: '8%' }} /><col style={{ width: '35%' }} /><col style={{ width: '25%' }} /><col style={{ width: '10%' }} /><col style={{ width: '22%' }} /></colgroup>
+          <thead><tr><th>ردیف</th><th>شرح هزینه</th><th>محل / ارائه‌دهنده</th><th>تعداد</th><th>مبلغ (ریال)</th></tr></thead>
+          <tbody>
+            {[0, 1, 2].map(i => {
+              const item = items[i];
+              return <tr key={i}><td>{i + 1}</td><td>{item?.product || ''}</td><td>{item?.provider || ''}</td><td>{item?.qty || ''}</td><td>{item ? formatMoney(item.total) : ''}</td></tr>;
+            })}
+            <tr className="ni-total"><td colSpan="4">جمع کل:</td><td>{formatMoney(total)}</td></tr>
+          </tbody>
+        </table>
+
+        <div className="ni-signatures">
+          <div>تنظیم‌کننده: <b>{noInvoice.requester}</b><span>امضاء:</span></div>
+          <div>تأییدکننده: <span>امضاء:</span></div>
+          <div>تصویب‌کننده: <span>امضاء:</span></div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+createRoot(document.getElementById('root')).render(<App />);
