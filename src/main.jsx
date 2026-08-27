@@ -41,8 +41,6 @@ const noInvoiceKeywords = [
   'هتل',
   'مترو',
   'اتوبوس',
-  'اسنپ',
-  'تپسی'
 ];
 
 function numberValue(value) {
