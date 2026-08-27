@@ -1660,7 +1660,7 @@ function NoInvoiceForm({
               {' '}
               <b>
                 {
-                  noInvoice.date
+                  header.date
                 }
               </b>
             </div>
