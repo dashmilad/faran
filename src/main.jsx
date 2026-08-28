@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
@@ -57,20 +57,7 @@ function mod(a, b) {
 
 // تبدیل تاریخ میلادی به جلالی
 function gregorianToJalali(gy, gm, gd) {
-  const gdm = [
-    0,
-    31,
-    59,
-    90,
-    120,
-    151,
-    181,
-    212,
-    243,
-    273,
-    304,
-    334
-  ];
+  const gdm = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
 
   let jy;
 
@@ -120,6 +107,10 @@ function gregorianToJalali(gy, gm, gd) {
 
 // تبدیل تاریخ جلالی به میلادی
 function jalaliToGregorian(jy, jm, jd) {
+  if (jy < 1 || jm < 1 || jm > 12 || jd < 1) {
+    return [1400, 1, 1]; // Default date
+  }
+
   let gy;
 
   if (jy > 979) {
@@ -245,7 +236,6 @@ function getMonthDays(year, month) {
   if (month <= 6) return 31;
   if (month <= 11) return 30;
 
-  // تعیین 29 یا 30 روزه بودن اسفند
   const [gy] = jalaliToGregorian(year, 12, 1);
   const [gyNext] = jalaliToGregorian(year + 1, 1, 1);
 
@@ -270,8 +260,6 @@ function getFirstWeekday(year, month) {
 
   const date = new Date(gy, gm - 1, gd);
 
-  // JS: Sunday=0 ... Saturday=6
-  // تقویم ما: Saturday=0 ... Friday=6
   return (date.getDay() + 1) % 7;
 }
 
@@ -281,7 +269,6 @@ function getFirstWeekday(year, month) {
 
 function PersianDatePicker({ value, onChange }) {
   const today = getJalaliToday();
-
   const [open, setOpen] = useState(false);
 
   const parseValue = value => {
@@ -306,23 +293,11 @@ function PersianDatePicker({ value, onChange }) {
 
   const selected = parseValue(value);
 
-  const [viewYear, setViewYear] = useState(
-    selected.year
-  );
+  const [viewYear, setViewYear] = useState(selected.year);
+  const [viewMonth, setViewMonth] = useState(selected.month);
 
-  const [viewMonth, setViewMonth] = useState(
-    selected.month
-  );
-
-  const daysInMonth = getMonthDays(
-    viewYear,
-    viewMonth
-  );
-
-  const firstDay = getFirstWeekday(
-    viewYear,
-    viewMonth
-  );
+  const daysInMonth = getMonthDays(viewYear, viewMonth);
+  const firstDay = getFirstWeekday(viewYear, viewMonth);
 
   const days = [];
 
@@ -338,51 +313,40 @@ function PersianDatePicker({ value, onChange }) {
     days.push(null);
   }
 
-  const previousMonth = () => {
+  const previousMonth = useCallback(() => {
     if (viewMonth === 1) {
       setViewMonth(12);
       setViewYear(prev => prev - 1);
     } else {
       setViewMonth(prev => prev - 1);
     }
-  };
+  }, [viewMonth]);
 
-  const nextMonth = () => {
+  const nextMonth = useCallback(() => {
     if (viewMonth === 12) {
       setViewMonth(1);
       setViewYear(prev => prev + 1);
     } else {
       setViewMonth(prev => prev + 1);
     }
-  };
+  }, [viewMonth]);
 
-  const selectDay = day => {
+  const selectDay = useCallback(day => {
     if (!day) return;
 
-    const formatted = formatJalaliDate(
-      viewYear,
-      viewMonth,
-      day
-    );
-
+    const formatted = formatJalaliDate(viewYear, viewMonth, day);
     onChange(formatted);
     setOpen(false);
-  };
+  }, [viewYear, viewMonth, onChange]);
 
-  const goToday = () => {
+  const goToday = useCallback(() => {
     setViewYear(today.year);
     setViewMonth(today.month);
-
     onChange(
-      formatJalaliDate(
-        today.year,
-        today.month,
-        today.day
-      )
+      formatJalaliDate(today.year, today.month, today.day)
     );
-
     setOpen(false);
-  };
+  }, [today, onChange]);
 
   return (
     <div
@@ -450,8 +414,7 @@ function PersianDatePicker({ value, onChange }) {
             background: '#fff',
             border: '1px solid #d5dae0',
             borderRadius: '12px',
-            boxShadow:
-              '0 12px 35px rgba(0,0,0,.18)',
+            boxShadow: '0 12px 35px rgba(0,0,0,.18)',
             padding: '12px',
             zIndex: 9999,
             direction: 'rtl'
@@ -481,13 +444,8 @@ function PersianDatePicker({ value, onChange }) {
               ‹
             </button>
 
-            <strong
-              style={{
-                fontSize: '14px'
-              }}
-            >
-              {jalaliMonths[viewMonth - 1]}{' '}
-              {viewYear}
+            <strong style={{ fontSize: '14px' }}>
+              {jalaliMonths[viewMonth - 1]} {viewYear}
             </strong>
 
             <button
@@ -510,8 +468,7 @@ function PersianDatePicker({ value, onChange }) {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns:
-                'repeat(7, 1fr)',
+              gridTemplateColumns: 'repeat(7, 1fr)',
               gap: '3px',
               marginBottom: '5px'
             }}
@@ -535,8 +492,7 @@ function PersianDatePicker({ value, onChange }) {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns:
-                'repeat(7, 1fr)',
+              gridTemplateColumns: 'repeat(7, 1fr)',
               gap: '3px'
             }}
           >
@@ -570,17 +526,10 @@ function PersianDatePicker({ value, onChange }) {
                       : isToday
                       ? '#eef0f2'
                       : '#fff',
-                    color: isSelected
-                      ? '#fff'
-                      : '#222',
-                    cursor: day
-                      ? 'pointer'
-                      : 'default',
+                    color: isSelected ? '#fff' : '#222',
+                    cursor: day ? 'pointer' : 'default',
                     fontSize: '11px',
-                    fontWeight:
-                      isSelected || isToday
-                        ? 700
-                        : 400
+                    fontWeight: isSelected || isToday ? 700 : 400
                   }}
                 >
                   {day || ''}
@@ -616,29 +565,26 @@ function PersianDatePicker({ value, onChange }) {
    توابع عمومی
 ========================================================= */
 
+function sanitizeInput(value) {
+  return String(value || '').trim();
+}
+
 function numberValue(value) {
-  return (
-    Number(
-      String(value ?? '').replace(
-        /[٬,،\s]/g,
-        ''
-      )
-    ) || 0
-  );
+  const num = Number(
+    String(value ?? '').replace(/[٬,،\s]/g, '')
+  ) || 0;
+  return isFinite(num) ? num : 0;
 }
 
 function formatMoney(value) {
   const n = numberValue(value);
-
   return n
     ? new Intl.NumberFormat('fa-IR').format(n)
     : '';
 }
 
-// تشخیص موارد بدون فاکتور فقط از روی شرح هزینه
 function extractNoInvoiceItems(description) {
-  const text = String(description || '').trim();
-
+  const text = sanitizeInput(description);
   if (!text) return [];
 
   return noInvoiceKeywords.filter(keyword =>
@@ -648,11 +594,9 @@ function extractNoInvoiceItems(description) {
 
 function chunk(array, size) {
   const out = [];
-
   for (let i = 0; i < array.length; i += size) {
     out.push(array.slice(i, i + size));
   }
-
   return out;
 }
 
@@ -662,40 +606,34 @@ function chunk(array, size) {
 
 function App() {
   const [header, setHeader] = useState({
-    title:
-      'فرم صورت ریز هزینه های تنخواه واحد خدمات',
+    title: 'فرم صورت ریز هزینه های تنخواه واحد خدمات',
     docCode: 'FI-B-FO-112/00',
     refCode: 'FI-B-RE-001/00',
     date: '1405/  /  '
   });
 
-  const [rows, setRows] =
-    useState(initialRows);
+  const [rows, setRows] = useState(initialRows);
 
-  const [signatures, setSignatures] =
-    useState({
-      requester: '',
-      confirmer: '',
-      approver: ''
-    });
+  const [signatures, setSignatures] = useState({
+    requester: '',
+    confirmer: '',
+    approver: ''
+  });
 
-  const [noInvoice, setNoInvoice] =
-    useState({
-      formCode: 'FI-B-FO-135/00',
-      refCode: 'FI-B-RE-001/00',
-      date: '1405/  /  ',
-      requester: '',
-      position: '',
-      organization: '',
-      reason: '',
-      notes: ''
-    });
+  const [noInvoice, setNoInvoice] = useState({
+    formCode: 'FI-B-FO-135/00',
+    refCode: 'FI-B-RE-001/00',
+    date: '1405/  /  ',
+    requester: '',
+    position: '',
+    organization: '',
+    reason: '',
+    notes: ''
+  });
 
-  const [busy, setBusy] =
-    useState(false);
-
-  const [noInvoiceBusy, setNoInvoiceBusy] =
-    useState(false);
+  const [busy, setBusy] = useState(false);
+  const [noInvoiceBusy, setNoInvoiceBusy] = useState(false);
+  const [error, setError] = useState(null);
 
   const total = useMemo(
     () =>
@@ -707,41 +645,25 @@ function App() {
     [rows]
   );
 
-  /*
-   * فرم بدون فاکتور فقط از روی شرح هزینه ساخته می‌شود.
-   * نوع خدمات هیچ نقشی در این قسمت ندارد.
-   */
   const noInvoiceItems = useMemo(() => {
     const items = [];
 
     rows.forEach(row => {
-      const description = String(
-        row.description || ''
-      ).trim();
+      const description = sanitizeInput(row.description);
+      const amount = numberValue(row.amount);
 
-      const amount = numberValue(
-        row.amount
-      );
+      if (!description || amount <= 0) return;
 
-      if (!description || amount <= 0)
-        return;
-
-      const matchedKeywords =
-        extractNoInvoiceItems(
-          description
-        );
+      const matchedKeywords = extractNoInvoiceItems(description);
 
       matchedKeywords.forEach(keyword => {
         items.push({
           product: keyword,
           provider: row.place,
-          date:
-            row.date || header.date,
+          date: row.date || header.date,
           qty: '1',
-          unitAmount:
-            String(amount),
-          total:
-            String(amount)
+          unitAmount: String(amount),
+          total: String(amount)
         });
       });
     });
@@ -750,155 +672,102 @@ function App() {
   }, [rows, header.date]);
 
   const noInvoiceForms = useMemo(
-    () =>
-      chunk(
-        noInvoiceItems,
-        3
-      ),
+    () => chunk(noInvoiceItems, 3),
     [noInvoiceItems]
   );
 
-  const updateHeader = (
-    key,
-    value
-  ) =>
+  const updateHeader = useCallback((key, value) => {
     setHeader(prev => ({
       ...prev,
-      [key]: value
+      [key]: sanitizeInput(value)
     }));
+  }, []);
 
-  /*
-   * با انتخاب تاریخ:
-   * 1- تاریخ سربرگ
-   * 2- تاریخ تمام ردیف‌ها
-   * 3- تاریخ فرم بدون فاکتور
-   * همزمان تغییر می‌کنند.
-   */
-  const updateDate = value => {
-    setHeader(prev => ({
-      ...prev,
-      date: value
-    }));
-
+  const updateDate = useCallback(value => {
+    const sanitized = sanitizeInput(value);
+    setHeader(prev => ({ ...prev, date: sanitized }));
     setRows(prev =>
-      prev.map(row => ({
-        ...row,
-        date: value
-      }))
+      prev.map(row => ({ ...row, date: sanitized }))
     );
+    setNoInvoice(prev => ({ ...prev, date: sanitized }));
+  }, []);
 
-    setNoInvoice(prev => ({
-      ...prev,
-      date: value
-    }));
-  };
-
-  const updateRow = (
-    index,
-    key,
-    value
-  ) => {
+  const updateRow = useCallback((index, key, value) => {
     setRows(prev =>
       prev.map((row, i) =>
         i === index
-          ? {
-              ...row,
-              [key]: value
-            }
+          ? { ...row, [key]: sanitizeInput(value) }
           : row
       )
     );
-  };
+  }, []);
 
-  const updateSignature = (
-    key,
-    value
-  ) =>
+  const updateSignature = useCallback((key, value) => {
     setSignatures(prev => ({
       ...prev,
-      [key]: value
+      [key]: sanitizeInput(value)
     }));
+  }, []);
 
-  const updateNoInvoice = (
-    key,
-    value
-  ) =>
+  const updateNoInvoice = useCallback((key, value) => {
     setNoInvoice(prev => ({
       ...prev,
-      [key]: value
+      [key]: sanitizeInput(value)
     }));
+  }, []);
 
-  const reset = () => {
+  const reset = useCallback(() => {
     setRows(
-      Array.from(
-        { length: 8 },
-        () =>
-          emptyRow(header.date)
-      )
+      Array.from({ length: 8 }, () => emptyRow(header.date))
     );
-
-    setSignatures({
-      requester: '',
-      confirmer: '',
-      approver: ''
-    });
-
+    setSignatures({ requester: '', confirmer: '', approver: '' });
     setNoInvoice({
-      formCode:
-        'FI-B-FO-135/00',
-      refCode:
-        header.refCode,
-      date:
-        header.date,
+      formCode: 'FI-B-FO-135/00',
+      refCode: header.refCode,
+      date: header.date,
       requester: '',
       position: '',
       organization: '',
       reason: '',
       notes: ''
     });
-  };
+    setError(null);
+  }, [header.date, header.refCode]);
 
   const waitForImages = async node => {
-    const images = [
-      ...node.querySelectorAll('img')
-    ];
-
+    const images = [...node.querySelectorAll('img')];
     await Promise.all(
       images.map(img =>
         img.complete
           ? Promise.resolve()
-          : new Promise(
-              resolve => {
-                img.onload =
-                  resolve;
-                img.onerror =
-                  resolve;
-              }
-            )
+          : new Promise(resolve => {
+              img.onload = resolve;
+              img.onerror = resolve;
+            })
       )
     );
   };
 
-  const exportMainPdf = async () => {
-    const node =
-      document.getElementById(
-        'main-print'
-      );
+  const exportMainPdf = useCallback(async () => {
+    const node = document.getElementById('main-print');
 
-    if (!node) return;
+    if (!node) {
+      setError('خطا: عنصر چاپ یافت نشد');
+      return;
+    }
 
     setBusy(true);
+    setError(null);
 
     try {
       await waitForImages(node);
 
-      const canvas =
-        await html2canvas(node, {
-          scale: 3,
-          backgroundColor: '#fff',
-          useCORS: true,
-          logging: false
-        });
+      const canvas = await html2canvas(node, {
+        scale: 3,
+        backgroundColor: '#fff',
+        useCORS: true,
+        logging: false
+      });
 
       const pdf = new jsPDF({
         orientation: 'landscape',
@@ -908,9 +777,7 @@ function App() {
       });
 
       pdf.addImage(
-        canvas.toDataURL(
-          'image/png'
-        ),
+        canvas.toDataURL('image/png'),
         'PNG',
         0,
         0,
@@ -920,103 +787,83 @@ function App() {
         'FAST'
       );
 
-      pdf.save(
-        `فرم-تنخواه-${
-          header.date ||
-          'بدون-تاریخ'
-        }.pdf`
-      );
+      pdf.save(`فرم-تنخواه-${header.date || 'بدون-تاریخ'}.pdf`);
+    } catch (err) {
+      setError(`خطا در صادرات PDF: ${err.message}`);
+      console.error('PDF Export Error:', err);
     } finally {
       setBusy(false);
     }
-  };
+  }, [header.date]);
 
-  const exportNoInvoicePdf =
-    async () => {
-      if (!noInvoiceForms.length)
-        return;
+  const exportNoInvoicePdf = useCallback(async () => {
+    if (!noInvoiceForms.length) {
+      setError('هیچ فرم بدون فاکتور برای صادرات وجود ندارد');
+      return;
+    }
 
-      setNoInvoiceBusy(true);
+    setNoInvoiceBusy(true);
+    setError(null);
 
-      try {
-        const pdf = new jsPDF({
-          orientation: 'portrait',
-          unit: 'mm',
-          format: 'a4',
-          compress: true
+    try {
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+        compress: true
+      });
+
+      let first = true;
+
+      for (let i = 0; i < noInvoiceForms.length; i += 1) {
+        const node = document.getElementById(`no-invoice-${i}`);
+
+        if (!node) continue;
+
+        await waitForImages(node);
+
+        const canvas = await html2canvas(node, {
+          scale: 3,
+          backgroundColor: '#fff',
+          useCORS: true,
+          logging: false
         });
 
-        let first = true;
-
-        for (
-          let i = 0;
-          i < noInvoiceForms.length;
-          i += 1
-        ) {
-          const node =
-            document.getElementById(
-              `no-invoice-${i}`
-            );
-
-          if (!node) continue;
-
-          await waitForImages(
-            node
-          );
-
-          const canvas =
-            await html2canvas(
-              node,
-              {
-                scale: 3,
-                backgroundColor:
-                  '#fff',
-                useCORS: true,
-                logging: false
-              }
-            );
-
-          if (!first) {
-            pdf.addPage();
-          }
-
-          first = false;
-
-          pdf.addImage(
-            canvas.toDataURL(
-              'image/png'
-            ),
-            'PNG',
-            0,
-            0,
-            210,
-            297,
-            undefined,
-            'FAST'
-          );
-        }
-
         if (!first) {
-          pdf.save(
-            `فرم-بدون-فاکتور-${
-              header.date ||
-              'بدون-تاریخ'
-            }.pdf`
-          );
+          pdf.addPage();
         }
-      } finally {
-        setNoInvoiceBusy(false);
-      }
-    };
 
-  const printAll = () =>
+        first = false;
+
+        pdf.addImage(
+          canvas.toDataURL('image/png'),
+          'PNG',
+          0,
+          0,
+          210,
+          297,
+          undefined,
+          'FAST'
+        );
+      }
+
+      if (!first) {
+        pdf.save(`فرم-بدون-فاکتور-${header.date || 'بدون-تاریخ'}.pdf`);
+      }
+    } catch (err) {
+      setError(`خطا در صادرات PDF: ${err.message}`);
+      console.error('PDF Export Error:', err);
+    } finally {
+      setNoInvoiceBusy(false);
+    }
+  }, [noInvoiceForms, header.date]);
+
+  const printAll = useCallback(() => {
     window.print();
+  }, []);
 
   return (
-    <div
-      className="app-shell"
-      dir="rtl"
-    >
+    <div className="app-shell" dir="rtl">
       <aside className="control-panel no-print">
 
         <div className="panel-title">
@@ -1027,10 +874,15 @@ function App() {
           نسخه طراحی‌شده برای چاپ A4
         </div>
 
-        {/* تاریخ فرم */}
+        {error && (
+          <div className="error-message">
+            {error}
+            <button onClick={() => setError(null)}>✕</button>
+          </div>
+        )}
+
         <div className="control-group">
           <label>تاریخ فرم</label>
-
           <PersianDatePicker
             value={header.date}
             onChange={updateDate}
@@ -1038,43 +890,25 @@ function App() {
         </div>
 
         <div className="control-grid">
-
           <div className="control-group">
-            <label>
-              کد سند
-            </label>
-
+            <label>کد سند</label>
             <input
-              value={
-                header.docCode
-              }
+              value={header.docCode}
               onChange={e =>
-                updateHeader(
-                  'docCode',
-                  e.target.value
-                )
+                updateHeader('docCode', e.target.value)
               }
             />
           </div>
 
           <div className="control-group">
-            <label>
-              کد سند مرجع
-            </label>
-
+            <label>کد سند مرجع</label>
             <input
-              value={
-                header.refCode
-              }
+              value={header.refCode}
               onChange={e =>
-                updateHeader(
-                  'refCode',
-                  e.target.value
-                )
+                updateHeader('refCode', e.target.value)
               }
             />
           </div>
-
         </div>
 
         <div className="section-label">
@@ -1082,59 +916,51 @@ function App() {
         </div>
 
         <div className="editor-table">
+          {rows.map((row, index) => (
+            <div className="editor-row" key={index}>
+              <span>{index + 1}</span>
 
-          {rows.map(
-            (row, index) => (
+              <input
+                value={row.place}
+                onChange={e =>
+                  updateRow(index, 'place', e.target.value)
+                }
+                placeholder="محل / شرکت"
+              />
 
-<div className="editor-row">
-  <span>{index + 1}</span>
+              <select
+                value={row.service}
+                onChange={e =>
+                  updateRow(index, 'service', e.target.value)
+                }
+              >
+                <option value="">نوع خدمات</option>
+                {serviceOptions.map(option => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
 
-  <input
-    value={row.place}
-    onChange={e =>
-      updateRow(index, 'place', e.target.value)
-    }
-    placeholder="محل / شرکت"
-  />
+              <input
+                className="description-input"
+                value={row.description}
+                onChange={e =>
+                  updateRow(index, 'description', e.target.value)
+                }
+                placeholder="شرح هزینه"
+              />
 
-  <select
-    value={row.service}
-    onChange={e =>
-      updateRow(index, 'service', e.target.value)
-    }
-  >
-    <option value="">نوع خدمات</option>
-
-    {serviceOptions.map(option => (
-      <option key={option} value={option}>
-        {option}
-      </option>
-    ))}
-  </select>
-
-  <input
-    className="description-input"
-    value={row.description}
-    onChange={e =>
-      updateRow(index, 'description', e.target.value)
-    }
-    placeholder="شرح هزینه"
-  />
-
-  <input
-    value={row.amount}
-    onChange={e =>
-      updateRow(index, 'amount', e.target.value)
-    }
-    inputMode="numeric"
-    placeholder="مبلغ"
-  />
-</div>
-
-
-            )
-          )}
-
+              <input
+                value={row.amount}
+                onChange={e =>
+                  updateRow(index, 'amount', e.target.value)
+                }
+                inputMode="numeric"
+                placeholder="مبلغ"
+              />
+            </div>
+          ))}
         </div>
 
         <div className="section-label">
@@ -1142,61 +968,35 @@ function App() {
         </div>
 
         <div className="control-grid three">
-
           <div className="control-group">
-            <label>
-              تنظیم‌کننده
-            </label>
-
+            <label>تنظیم‌کننده</label>
             <input
-              value={
-                signatures.requester
-              }
+              value={signatures.requester}
               onChange={e =>
-                updateSignature(
-                  'requester',
-                  e.target.value
-                )
+                updateSignature('requester', e.target.value)
               }
             />
           </div>
 
           <div className="control-group">
-            <label>
-              تأییدکننده
-            </label>
-
+            <label>تأییدکننده</label>
             <input
-              value={
-                signatures.confirmer
-              }
+              value={signatures.confirmer}
               onChange={e =>
-                updateSignature(
-                  'confirmer',
-                  e.target.value
-                )
+                updateSignature('confirmer', e.target.value)
               }
             />
           </div>
 
           <div className="control-group">
-            <label>
-              تصویب‌کننده
-            </label>
-
+            <label>تصویب‌کننده</label>
             <input
-              value={
-                signatures.approver
-              }
+              value={signatures.approver}
               onChange={e =>
-                updateSignature(
-                  'approver',
-                  e.target.value
-                )
+                updateSignature('approver', e.target.value)
               }
             />
           </div>
-
         </div>
 
         <div className="section-label">
@@ -1204,87 +1004,50 @@ function App() {
         </div>
 
         <div className="control-grid">
-
           <div className="control-group">
-            <label>
-              درخواست‌کننده
-            </label>
-
+            <label>درخواست‌کننده</label>
             <input
-              value={
-                noInvoice.requester
-              }
+              value={noInvoice.requester}
               onChange={e =>
-                updateNoInvoice(
-                  'requester',
-                  e.target.value
-                )
+                updateNoInvoice('requester', e.target.value)
               }
             />
           </div>
 
           <div className="control-group">
-            <label>
-              سمت
-            </label>
-
+            <label>سمت</label>
             <input
-              value={
-                noInvoice.position
-              }
+              value={noInvoice.position}
               onChange={e =>
-                updateNoInvoice(
-                  'position',
-                  e.target.value
-                )
+                updateNoInvoice('position', e.target.value)
               }
             />
           </div>
 
           <div className="control-group">
-            <label>
-              واحد / سازمان
-            </label>
-
+            <label>واحد / سازمان</label>
             <input
-              value={
-                noInvoice.organization
-              }
+              value={noInvoice.organization}
               onChange={e =>
-                updateNoInvoice(
-                  'organization',
-                  e.target.value
-                )
+                updateNoInvoice('organization', e.target.value)
               }
             />
           </div>
 
           <div className="control-group">
-            <label>
-              علت عدم ارائه فاکتور
-            </label>
-
+            <label>علت عدم ارائه فاکتور</label>
             <input
-              value={
-                noInvoice.reason
-              }
+              value={noInvoice.reason}
               onChange={e =>
-                updateNoInvoice(
-                  'reason',
-                  e.target.value
-                )
+                updateNoInvoice('reason', e.target.value)
               }
             />
           </div>
-
         </div>
 
         <div className="action-grid">
-
           <button
-            onClick={
-              exportMainPdf
-            }
+            onClick={exportMainPdf}
             disabled={busy}
           >
             {busy
@@ -1293,9 +1056,7 @@ function App() {
           </button>
 
           <button
-            onClick={
-              exportNoInvoicePdf
-            }
+            onClick={exportNoInvoicePdf}
             disabled={
               noInvoiceBusy ||
               !noInvoiceForms.length
@@ -1318,7 +1079,6 @@ function App() {
           >
             پاک کردن اطلاعات
           </button>
-
         </div>
 
       </aside>
@@ -1341,27 +1101,18 @@ function App() {
               <div className="header-codes">
 
                 <div>
-                  کد سند:
-                  {' '}
-                  <b>
-                    {header.docCode}
-                  </b>
+                  کد سند:{' '}
+                  <b>{header.docCode}</b>
                 </div>
 
                 <div>
-                  کد سند مرجع:
-                  {' '}
-                  <b>
-                    {header.refCode}
-                  </b>
+                  کد سند مرجع:{' '}
+                  <b>{header.refCode}</b>
                 </div>
 
                 <div>
-                  تاریخ:
-                  {' '}
-                  <b>
-                    {header.date}
-                  </b>
+                  تاریخ:{' '}
+                  <b>{header.date}</b>
                 </div>
 
               </div>
@@ -1396,67 +1147,47 @@ function App() {
                 <tr>
                   <th>ردیف</th>
                   <th>تاریخ</th>
-                  <th>
-                    محل مراجعه/بانک/شرکت
-                  </th>
-                  <th>
-                    نوع خدمات
-                  </th>
-                  <th>
-                    شماره قرارداد-فاکتور
-                  </th>
-                  <th>
-                    شرح هزینه
-                  </th>
-                  <th>
-                    مبلغ هزینه (ریال)
-                  </th>
+                  <th>محل مراجعه/بانک/شرکت</th>
+                  <th>نوع خدمات</th>
+                  <th>شماره قرارداد-فاکتور</th>
+                  <th>شرح هزینه</th>
+                  <th>مبلغ هزینه (ریال)</th>
                 </tr>
 
               </thead>
 
               <tbody>
 
-                {rows.map(
-                  (row, index) => (
+                {rows.map((row, index) => (
 
-                    <tr key={index}>
+                  <tr key={index}>
 
-                      <td>
-                        {index + 1}
-                      </td>
+                    <td>{index + 1}</td>
 
-                      <td>
-                        {row.date ||
-                          header.date}
-                      </td>
+                    <td>
+                      {row.date ||
+                        header.date}
+                    </td>
 
-                      <td>
-                        {row.place}
-                      </td>
+                    <td>{row.place}</td>
 
-                      <td>
-                        {row.service}
-                      </td>
+                    <td>{row.service}</td>
 
-                      <td>
-                        {row.invoice}
-                      </td>
+                    <td>{row.invoice}</td>
 
-                      <td className="description-cell">
-                        {row.description}
-                      </td>
+                    <td className="description-cell">
+                      {row.description}
+                    </td>
 
-                      <td className="amount-cell">
-                        {formatMoney(
-                          row.amount
-                        )}
-                      </td>
+                    <td className="amount-cell">
+                      {formatMoney(
+                        row.amount
+                      )}
+                    </td>
 
-                    </tr>
+                  </tr>
 
-                  )
-                )}
+                ))}
 
                 <tr className="total-row">
 
@@ -1598,8 +1329,7 @@ function NoInvoiceForm({
           <div className="ni-code-box">
 
             <div>
-              کد فرم:
-              {' '}
+              کد فرم:{' '}
               <b>
                 {
                   noInvoice.formCode
@@ -1608,8 +1338,7 @@ function NoInvoiceForm({
             </div>
 
             <div>
-              کد سند مرجع:
-              {' '}
+              کد سند مرجع:{' '}
               <b>
                 {
                   noInvoice.refCode ||
@@ -1619,8 +1348,7 @@ function NoInvoiceForm({
             </div>
 
             <div>
-              تاریخ:
-              {' '}
+              تاریخ:{' '}
               <b>
                 {
                   header.date
@@ -1808,8 +1536,7 @@ function NoInvoiceForm({
         <div className="ni-signatures">
 
           <div>
-            تنظیم‌کننده:
-            {' '}
+            تنظیم‌کننده:{' '}
             <b>
               {
                 noInvoice.requester
