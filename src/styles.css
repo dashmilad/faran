@@ -1,1791 +1,930 @@
-ChatGPT said:
-حتماً. این نسخه‌ی کامل styles.css است؛ هم فرم اصلی را نگه می‌دارد، هم فرم بدون فاکتور را مطابق تصویر مرجع طراحی می‌کند، و استایل پنل کنترل، تقویم، پیش‌نمایش و چاپ را هم شامل می‌شود.
-
-کل محتوای styles.css فعلی را پاک کن و این را جایگزین کن:
-
-/* =========================================================
-   RESET / BASE
-========================================================= */
-
 * {
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 html,
-body,
-#root {
-  margin: 0;
-  padding: 0;
-  min-height: 100%;
-}
-
 body {
-  background: #eef0f3;
-  color: #171717;
-
-  font-family:
-    Tahoma,
-    Arial,
-    sans-serif;
-
+  font-family: 'B Nazanin', 'Tahoma', sans-serif;
+  font-size: 12px;
+  line-height: 1.4;
   direction: rtl;
+  background: #f5f5f5;
 }
 
-button,
-input,
-select,
-textarea {
-  font-family: inherit;
-}
-
-button {
-  -webkit-tap-highlight-color: transparent;
-}
-
-input,
-select,
-textarea {
-  outline: none;
-}
-
-
-/* =========================================================
-   APP
-========================================================= */
+/* ============================================================
+   APP SHELL
+   ============================================================ */
 
 .app-shell {
-  min-height: 100vh;
-
   display: flex;
-
-  direction: rtl;
-
-  background:
-    linear-gradient(
-      135deg,
-      #f1f3f5 0%,
-      #e8ebef 100%
-    );
+  gap: 20px;
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
+.no-print {
+  /* hidden only in print via media query below */
+}
 
-/* =========================================================
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* ============================================================
    CONTROL PANEL
-========================================================= */
+   ============================================================ */
 
 .control-panel {
-  width: 390px;
-  min-width: 390px;
-
-  min-height: 100vh;
-
-  padding: 24px 20px;
-
+  flex: 0 0 300px;
   background: #fff;
-
-  border-left: 1px solid #d8dce1;
-
-  box-shadow:
-    -4px 0 22px rgba(0, 0, 0, .08);
-
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  max-height: 100vh;
   overflow-y: auto;
-
-  position: sticky;
-  top: 0;
-
-  z-index: 20;
 }
 
 .panel-title {
-  font-size: 22px;
-
-  font-weight: 800;
-
-  color: #20252b;
-
-  margin-bottom: 5px;
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 10px;
+  color: #333;
 }
 
-.panel-subtitle {
-  font-size: 12px;
-
-  color: #737b85;
-
-  margin-bottom: 22px;
-}
-
-
-/* =========================================================
-   CONTROL GROUP
-========================================================= */
-
-.control-group {
-  display: flex;
-
-  flex-direction: column;
-
-  gap: 7px;
-
-  margin-bottom: 13px;
-}
-
-.control-group label {
-  font-size: 12px;
-
-  font-weight: 700;
-
-  color: #3f464e;
-}
-
-.control-group input,
-.control-group select,
-.control-group textarea {
-  width: 100%;
-
-  min-height: 38px;
-
-  border: 1px solid #d3d8de;
-
-  border-radius: 7px;
-
-  background: #fff;
-
-  padding: 7px 10px;
-
-  color: #20252b;
-
-  font-size: 12px;
-
-  transition:
-    border-color .15s ease,
-    box-shadow .15s ease,
-    background .15s ease;
-}
-
-.control-group input:focus,
-.control-group select:focus,
-.control-group textarea:focus {
-  border-color: #6b737c;
-
-  box-shadow:
-    0 0 0 3px rgba(70, 80, 90, .08);
-}
-
-.control-group input::placeholder,
-.control-group textarea::placeholder {
-  color: #a1a8af;
-}
-
-.control-group textarea {
-  min-height: 70px;
-
-  resize: vertical;
-}
-
-
-/* =========================================================
-   CONTROL GRID
-========================================================= */
-
-.control-grid {
-  display: grid;
-
-  grid-template-columns:
-    repeat(2, minmax(0, 1fr));
-
-  gap: 0 10px;
-}
-
-.control-grid.three {
-  grid-template-columns:
-    repeat(3, minmax(0, 1fr));
-}
-
-
-/* =========================================================
-   SECTION LABEL
-========================================================= */
-
-.section-label {
-  margin: 22px 0 12px;
-
-  padding-bottom: 8px;
-
-  border-bottom: 1px solid #e0e3e7;
-
-  font-size: 13px;
-
-  font-weight: 800;
-
-  color: #292f35;
-}
-
-
-/* =========================================================
-   EDITOR TABLE
-========================================================= */
-
-.editor-table {
-  display: flex;
-
-  flex-direction: column;
-
-  gap: 7px;
-}
-
-.editor-row {
-  display: grid;
-
-  grid-template-columns:
-    28px
-    1fr
-    115px
-    1.5fr
-    105px;
-
-  gap: 5px;
-
-  align-items: center;
-}
-
-.editor-row > span {
-  width: 28px;
-  height: 35px;
-
-  display: flex;
-
-  align-items: center;
-  justify-content: center;
-
-  border-radius: 6px;
-
-  background: #f0f2f4;
-
-  color: #555d66;
-
+.hint {
   font-size: 11px;
-
-  font-weight: 700;
+  color: #666;
+  margin-bottom: 15px;
+  line-height: 1.6;
 }
 
-.editor-row input,
-.editor-row select {
-  width: 100%;
-
-  height: 35px;
-
-  min-width: 0;
-
-  padding: 5px 7px;
-
-  border: 1px solid #d5d9de;
-
-  border-radius: 6px;
-
-  background: #fff;
-
-  color: #222;
-
-  font-size: 10px;
+.control-panel section {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #eee;
 }
 
-.editor-row input:focus,
-.editor-row select:focus {
-  border-color: #68717b;
-
-  box-shadow:
-    0 0 0 2px rgba(70, 80, 90, .07);
+.control-panel h3 {
+  font-size: 13px;
+  font-weight: bold;
+  margin-bottom: 10px;
+  color: #333;
 }
 
-.editor-row .description-input {
-  min-width: 0;
-}
-
-
-/* =========================================================
-   ACTION BUTTONS
-========================================================= */
-
-.action-grid {
-  display: grid;
-
-  grid-template-columns:
-    repeat(2, minmax(0, 1fr));
-
-  gap: 9px;
-
-  margin-top: 24px;
-}
-
-.action-grid button {
-  min-height: 42px;
-
-  border: 0;
-
-  border-radius: 8px;
-
-  background: #20252b;
-
-  color: #fff;
-
-  cursor: pointer;
-
-  font-size: 12px;
-
-  font-weight: 700;
-
-  transition:
-    background .15s ease,
-    transform .1s ease,
-    opacity .15s ease;
-}
-
-.action-grid button:hover {
-  background: #343b43;
-}
-
-.action-grid button:active {
-  transform: translateY(1px);
-}
-
-.action-grid button:disabled {
-  opacity: .5;
-
-  cursor: not-allowed;
-}
-
-.action-grid button.secondary {
-  background: #e9ecef;
-
-  color: #333a41;
-}
-
-.action-grid button.secondary:hover {
-  background: #dfe3e7;
-}
-
-
-/* =========================================================
-   PREVIEW AREA
-========================================================= */
-
-.preview-area {
-  flex: 1;
-
-  min-width: 0;
-
-  padding: 28px;
-
+.control-panel label {
   display: flex;
-
   flex-direction: column;
+  margin-bottom: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #555;
+}
 
+.control-panel input {
+  padding: 6px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: inherit;
+  margin-top: 3px;
+  direction: rtl;
+  text-align: right;
+}
+
+.control-panel input:focus {
+  outline: none;
+  border-color: #0066cc;
+  box-shadow: 0 0 4px rgba(0, 102, 204, 0.3);
+}
+
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.three-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+
+.mobile-table {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.row-editor {
+  padding: 10px;
+  background: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.row-editor b {
+  display: block;
+  font-size: 11px;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.row-editor input {
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+}
+
+/* ============================================================
+   NO INVOICE EDITOR
+   ============================================================ */
+
+.no-invoice-editor {
+  background: #f0f7ff;
+  padding: 15px;
+  border-radius: 6px;
+  border: 1px solid #b3d9ff;
+}
+
+.ni-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.ni-form-grid label.wide {
+  grid-column: 1 / -1;
+}
+
+.approval-radios {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 20px;
+}
+
+.approval-radios label {
+  flex-direction: row;
   align-items: center;
+  gap: 5px;
+}
 
-  gap: 30px;
+.approval-radios input[type="radio"] {
+  width: auto;
+  margin: 0;
+}
 
+.ni-items-editor {
+  margin-bottom: 15px;
   overflow-x: auto;
 }
 
-.preview-note {
-  align-self: center;
-
-  padding: 7px 13px;
-
-  border-radius: 20px;
-
+.ni-items-editor table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
   background: #fff;
-
-  color: #707780;
-
-  font-size: 11px;
-
-  box-shadow:
-    0 2px 10px rgba(0, 0, 0, .05);
 }
 
+.ni-items-editor table th,
+.ni-items-editor table td {
+  border: 1px solid #ccc;
+  padding: 6px;
+  text-align: right;
+}
 
-/* =========================================================
-   PAPER
-========================================================= */
+.ni-items-editor table th {
+  background: #e8f0ff;
+  font-weight: bold;
+  color: #333;
+}
+
+.ni-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  padding: 10px;
+  background: #fff;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.ni-status span {
+  margin-left: 15px;
+}
+
+.ni-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+
+button {
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  font-family: inherit;
+  transition: all 0.2s;
+  color: #333;
+}
+
+button:hover:not(:disabled) {
+  background: #f0f0f0;
+  border-color: #999;
+}
+
+button.primary {
+  background: #0066cc;
+  color: #fff;
+  border-color: #0066cc;
+}
+
+button.primary:hover:not(:disabled) {
+  background: #0052a3;
+  border-color: #0052a3;
+}
+
+button.ghost {
+  background: transparent;
+  color: #666;
+  border-color: #999;
+}
+
+button.ghost:hover:not(:disabled) {
+  background: #f5f5f5;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 15px;
+}
+
+/* ============================================================
+   PREVIEW
+   ============================================================ */
+
+.preview-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.preview-label {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 10px;
+  font-weight: 500;
+}
 
 .paper {
   background: #fff;
-
-  position: relative;
-
-  overflow: hidden;
-
-  box-shadow:
-    0 10px 35px rgba(0, 0, 0, .16);
-
-  flex-shrink: 0;
-}
-
-
-/* =========================================================
-   MAIN PAPER - A4 LANDSCAPE
-========================================================= */
-
-.main-paper {
-  width: min(100%, 1120px);
-
-  aspect-ratio: 297 / 210;
-}
-
-
-/* =========================================================
-   MAIN FORM FRAME
-========================================================= */
-
-.form-frame {
-  width: 81.2%;
-  height: 68.2%;
-
-  position: absolute;
-
-  left: 9.4%;
-  top: 13.7%;
-
-  display: flex;
-
-  flex-direction: column;
-}
-
-
-/* =========================================================
-   MAIN HEADER
-========================================================= */
-
-.main-header {
-  height: 17.8%;
-
-  display: grid;
-
-  grid-template-columns:
-    43.5%
-    43%
-    13.5%;
-
-  direction: ltr;
-
-  border: 1.2px solid #111;
-}
-
-.header-codes,
-.header-title,
-.header-logo {
+  padding: 20px;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
   direction: rtl;
 }
 
+/* ============================================================
+   MAIN FORM - دقیق مثل تصویر
+   ============================================================ */
 
-/* =========================================================
-   MAIN HEADER - CODES
-========================================================= */
+.header-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 2px solid #333;
+  margin-bottom: 0;
+}
 
-.header-codes {
-  display: flex;
-
-  flex-direction: column;
-
-  justify-content: stretch;
-
-  border-right: 1.2px solid #111;
-
-  font-size:
-    clamp(
-      7px,
-      .82vw,
-      11px
-    );
-
+.header-table td {
+  border: 1px solid #333;
+  padding: 6px 8px;
   text-align: right;
+  font-size: 11px;
+  height: 30px;
+  vertical-align: middle;
 }
 
-.header-codes div {
-  flex: 1;
-
-  display: flex;
-
-  align-items: center;
-
-  justify-content: flex-end;
-
-  gap: 5px;
-
-  padding: 0 7px;
-
-  border-bottom: 1px solid #111;
-
-  white-space: nowrap;
-}
-
-.header-codes div:last-child {
-  border-bottom: 0;
-}
-
-.header-codes b {
+.header-codes-col {
+  width: 35%;
   font-weight: 500;
-
-  direction: ltr;
+  background-color: #fff;
 }
 
-
-/* =========================================================
-   MAIN HEADER - TITLE
-========================================================= */
-
-.header-title {
-  display: flex;
-
-  align-items: center;
-
-  justify-content: center;
-
+.header-title-col {
+  width: 40%;
   text-align: center;
-
-  font-size:
-    clamp(
-      9px,
-      1.08vw,
-      14px
-    );
-
-  font-weight: 700;
-
-  border-right: 1.2px solid #111;
-
-  white-space: nowrap;
+  vertical-align: middle;
+  font-size: 13px;
+  font-weight: bold;
+  color: #333;
+  background-color: #fff;
 }
 
-
-/* =========================================================
-   MAIN HEADER - LOGO
-========================================================= */
-
-.header-logo {
-  display: flex;
-
-  align-items: center;
-
-  justify-content: center;
-
+.header-logo-col {
+  width: 25%;
+  text-align: center;
   padding: 5px;
+  background-color: #fff;
+  vertical-align: middle;
 }
 
-.header-logo img {
-  width: 82%;
-
-  max-height: 78%;
-
-  object-fit: contain;
+.logo-header {
+  width: 80px;
+  height: auto;
+  max-width: 90%;
 }
 
-
-/* =========================================================
-   MAIN EXPENSE TABLE
-========================================================= */
-
+/* جدول اصلی */
 .expense-table {
   width: 100%;
-
-  height: 67%;
-
   border-collapse: collapse;
-
-  table-layout: fixed;
-
-  direction: rtl;
-
-  font-size:
-    clamp(
-      6px,
-      .72vw,
-      9px
-    );
+  border: 2px solid #333;
+  margin-top: 0;
+  margin-bottom: 0;
+  font-size: 10px;
 }
 
-.expense-table th,
-.expense-table td {
-  border: 1px solid #111;
-
-  padding: 1px 3px;
-
+.expense-table th {
+  border: 1px solid #333;
+  padding: 5px;
   text-align: center;
-
+  background-color: #e8e8e8;
+  font-weight: bold;
+  color: #333;
+  height: 28px;
   vertical-align: middle;
-
-  overflow: hidden;
-}
-
-.expense-table thead th {
-  height: 13%;
-
-  font-weight: 700;
-
-  line-height: 1.25;
-
-  white-space: normal;
-}
-
-.expense-table tbody tr:not(.total-row) {
-  height: 9%;
+  word-wrap: break-word;
 }
 
 .expense-table td {
-  font-weight: 400;
-
-  white-space: nowrap;
-}
-
-.expense-table .description-cell {
-  white-space: normal;
-
-  line-height: 1.2;
-}
-
-.expense-table .amount-cell {
-  direction: rtl;
-}
-
-
-/* =========================================================
-   MAIN TABLE COLUMNS
-========================================================= */
-
-.col-row {
-  width: 3.3%;
-}
-
-.col-date {
-  width: 10.6%;
-}
-
-.col-place {
-  width: 20.7%;
-}
-
-.col-service {
-  width: 11%;
-}
-
-.col-invoice {
-  width: 11.1%;
-}
-
-.col-description {
-  width: 30.3%;
-}
-
-.col-amount {
-  width: 13%;
-}
-
-
-/* =========================================================
-   MAIN TOTAL
-========================================================= */
-
-.total-row td {
-  height: 8.5%;
-
-  font-weight: 600;
-}
-
-.total-row .total-label {
-  text-align: right;
-
-  padding-right: 8px;
-}
-
-
-/* =========================================================
-   MAIN FOOTER DATE
-========================================================= */
-
-.expense-table tfoot td {
-  height: 7.5%;
-
-  text-align: right;
-
-  padding-right: 8px;
-
-  font-weight: 600;
-}
-
-
-/* =========================================================
-   MAIN SIGNATURES
-========================================================= */
-
-.signature-row {
-  height: 15.2%;
-
-  display: grid;
-
-  grid-template-columns:
-    1fr
-    1fr
-    1fr;
-
-  direction: rtl;
-}
-
-.signature-row > div {
-  direction: rtl;
-
-  border: 1px solid #111;
-
-  border-top: 0;
-
-  display: flex;
-
-  align-items: flex-start;
-
-  justify-content: flex-start;
-
-  gap: 4px;
-
-  padding: 7px 8px;
-
-  font-size:
-    clamp(
-      6px,
-      .68vw,
-      9px
-    );
-
-  line-height: 1.5;
-}
-
-.signature-row span {
-  white-space: nowrap;
-}
-
-.signature-row b {
-  font-weight: 500;
-}
-
-
-/* =========================================================
-   FORM WITHOUT INVOICE
-   A4 LANDSCAPE
-========================================================= */
-
-.no-invoice-paper {
-  width: min(100%, 1120px);
-
-  aspect-ratio: 297 / 210;
-
-  background: #fff;
-
-  position: relative;
-
-  overflow: hidden;
-
-  flex-shrink: 0;
-
-  box-shadow:
-    0 10px 35px rgba(0, 0, 0, .16);
-}
-
-
-/* =========================================================
-   OUTER DOUBLE BORDER
-========================================================= */
-
-.ni-outer-border {
-  position: absolute;
-
-  left: 3.8%;
-  right: 3.8%;
-
-  top: 5.2%;
-  bottom: 5.2%;
-
-  border: 2px solid #111;
-
+  border: 1px solid #333;
   padding: 4px;
-
-  background: #fff;
+  text-align: right;
+  vertical-align: middle;
+  height: 22px;
 }
 
-
-/* =========================================================
-   INNER FRAME
-========================================================= */
-
-.ni-frame {
-  width: 100%;
-  height: 100%;
-
-  border: 1px solid #111;
-
-  position: relative;
-
-  display: flex;
-
-  flex-direction: column;
-
-  direction: rtl;
-
-  color: #111;
-
-  font-family:
-    Tahoma,
-    Arial,
-    sans-serif;
+.th-row {
+  width: 30px;
 }
 
-
-/* =========================================================
-   VERTICAL SIDE LABEL
-========================================================= */
-
-.ni-side-label {
-  position: absolute;
-
-  right: -1px;
-  top: 0;
-
-  width: 29px;
-  height: 100%;
-
-  border-left: 1px solid #111;
-
-  display: flex;
-
-  align-items: center;
-
-  justify-content: center;
-
-  writing-mode: vertical-rl;
-
-  text-orientation: mixed;
-
-  font-size:
-    clamp(
-      7px,
-      .72vw,
-      10px
-    );
-
-  font-weight: 700;
-
-  background: #f8f8f8;
-
-  z-index: 5;
+.th-date {
+  width: 50px;
 }
 
-
-/* =========================================================
-   NO-INVOICE HEADER
-========================================================= */
-
-.ni-header {
-  width: calc(100% - 29px);
-
-  height: 16%;
-
-  margin-right: 29px;
-
-  display: grid;
-
-  grid-template-columns:
-    28%
-    55%
-    17%;
-
-  direction: ltr;
-
-  border-bottom: 1px solid #111;
+.th-place {
+  width: 80px;
+  font-size: 9px;
 }
 
-
-/* =========================================================
-   NO-INVOICE CODES
-========================================================= */
-
-.ni-codes {
-  direction: rtl;
-
-  display: flex;
-
-  flex-direction: column;
-
-  border-left: 1px solid #111;
+.th-service {
+  width: 55px;
 }
 
-.ni-codes > div {
-  flex: 1;
-
-  display: flex;
-
-  align-items: center;
-
-  justify-content: space-between;
-
-  gap: 5px;
-
-  padding: 0 7px;
-
-  border-bottom: 1px solid #111;
-
-  font-size:
-    clamp(
-      6px,
-      .68vw,
-      9px
-    );
-
-  white-space: nowrap;
+.th-invoice {
+  width: 65px;
+  font-size: 9px;
 }
 
-.ni-codes > div:last-child {
-  border-bottom: 0;
+.th-desc {
+  width: 90px;
 }
 
-.ni-codes b {
+.th-amount {
+  width: 70px;
+}
+
+.td-row {
+  text-align: center;
   font-weight: 500;
-
-  direction: ltr;
 }
 
+.td-date {
+  text-align: center;
+  font-size: 9px;
+}
 
-/* =========================================================
-   NO-INVOICE TITLE
-========================================================= */
+.td-place {
+  font-size: 9px;
+}
+
+.td-service {
+  font-size: 9px;
+}
+
+.td-invoice {
+  font-size: 9px;
+}
+
+.td-desc {
+  font-size: 9px;
+}
+
+.td-amount {
+  text-align: left;
+  font-weight: 500;
+  font-size: 9px;
+}
+
+.tr-total {
+  background-color: #f5f5f5;
+  font-weight: bold;
+}
+
+.tr-review {
+  background-color: #fafafa;
+}
+
+.td-review {
+  padding: 6px;
+  font-size: 10px;
+  text-align: right;
+}
+
+/* جدول امضاها */
+.signatures-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 2px solid #333;
+  margin-top: 0;
+  font-size: 10px;
+}
+
+.sig-cell {
+  border: 1px solid #333;
+  padding: 8px;
+  text-align: center;
+  width: 33.33%;
+  vertical-align: top;
+  min-height: 60px;
+}
+
+.sig-left,
+.sig-center,
+.sig-right {
+  font-weight: 500;
+  margin-bottom: 8px;
+  font-size: 9px;
+}
+
+.sig-space {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+}
+
+/* ============================================================
+   NO INVOICE FORM - دقیق مطابق تصویر
+   ============================================================ */
+
+.ni-copy {
+  background: #fff;
+  padding: 0;
+  border: 2px solid #333;
+  margin-bottom: 20px;
+  page-break-inside: avoid;
+  direction: rtl;
+}
+
+/* سربرگ - جدول 2 سطری */
+.ni-header-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 2px solid #333;
+  margin-bottom: 0;
+}
+
+.ni-header-table td {
+  border: 1px solid #333;
+  padding: 6px 8px;
+  text-align: right;
+  font-size: 11px;
+  height: 24px;
+  vertical-align: middle;
+}
+
+.ni-header-codes {
+  width: 35%;
+  background: #fafafa;
+}
+
+.ni-header-codes div {
+  font-weight: 500;
+  font-size: 11px;
+}
 
 .ni-header-title {
-  direction: rtl;
-
-  display: flex;
-
-  align-items: center;
-
-  justify-content: center;
-
+  width: 40%;
   text-align: center;
-
-  font-size:
-    clamp(
-      9px,
-      1.15vw,
-      15px
-    );
-
-  font-weight: 700;
-
-  border-left: 1px solid #111;
-
-  white-space: nowrap;
+  vertical-align: middle;
+  font-size: 13px;
+  font-weight: bold;
+  color: #333;
+  background: #fff;
 }
-
-
-/* =========================================================
-   NO-INVOICE LOGO
-========================================================= */
 
 .ni-header-logo {
-  direction: rtl;
-
-  display: flex;
-
-  align-items: center;
-
-  justify-content: center;
-
-  padding: 5px;
-}
-
-.ni-header-logo img {
-  width: 84%;
-
-  max-height: 82%;
-
-  object-fit: contain;
-}
-
-
-/* =========================================================
-   NO-INVOICE DATE
-========================================================= */
-
-.ni-date-row {
-  width: calc(100% - 29px);
-
-  height: 8%;
-
-  margin-right: 29px;
-
-  display: flex;
-
-  align-items: center;
-
-  justify-content: flex-start;
-
-  gap: 4px;
-
-  padding: 0 8px;
-
-  border-bottom: 1px solid #111;
-
-  font-size:
-    clamp(
-      6px,
-      .68vw,
-      9px
-    );
-
-  direction: rtl;
-}
-
-.ni-date-row b {
-  font-weight: 500;
-}
-
-
-/* =========================================================
-   NO-INVOICE PERSON INFORMATION
-========================================================= */
-
-.ni-person-row {
-  width: calc(100% - 29px);
-
-  height: 9%;
-
-  margin-right: 29px;
-
-  display: grid;
-
-  grid-template-columns:
-    44%
-    18%
-    38%;
-
-  border-bottom: 1px solid #111;
-
-  direction: rtl;
-}
-
-.ni-field {
-  display: flex;
-
-  align-items: center;
-
-  gap: 4px;
-
-  padding: 0 7px;
-
-  border-left: 1px solid #111;
-
-  font-size:
-    clamp(
-      6px,
-      .68vw,
-      9px
-    );
-
-  white-space: nowrap;
-
-  overflow: hidden;
-}
-
-.ni-field:last-child {
-  border-left: 0;
-}
-
-.ni-field b {
-  font-weight: 500;
-
-  overflow: hidden;
-
-  text-overflow: ellipsis;
-}
-
-
-/* =========================================================
-   NO-INVOICE TABLE
-========================================================= */
-
-.ni-table {
-  width: calc(100% - 29px);
-
-  margin-right: 29px;
-
-  height: 36%;
-
-  border-collapse: collapse;
-
-  table-layout: fixed;
-
-  direction: rtl;
-
-  font-size:
-    clamp(
-      6px,
-      .67vw,
-      9px
-    );
-}
-
-.ni-table th,
-.ni-table td {
-  border: 1px solid #111;
-
+  width: 25%;
   text-align: center;
+  padding: 3px;
+  background: #fafafa;
+}
 
+.ni-logo-img {
+  width: 70px;
+  height: auto;
+}
+
+/* شماره صفحه */
+.ni-page-info {
+  text-align: center;
+  font-size: 9px;
+  padding: 3px;
+  background: #fafafa;
+  border-bottom: 1px solid #333;
+}
+
+/* فیلدهای بالا */
+.ni-top-section {
+  padding: 8px;
+  border-bottom: 1px solid #333;
+}
+
+.ni-date-line {
+  font-size: 10px;
+  margin-bottom: 5px;
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.ni-date-input {
+  flex: 1;
+  border-bottom: 1px dotted #666;
+  padding: 0 4px;
+  min-width: 150px;
+}
+
+.ni-info-line {
+  font-size: 9px;
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.ni-info-line span {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  align-items: center;
+}
+
+.ni-info-line b {
+  border-bottom: 1px dotted #666;
+  padding: 0 4px;
+  flex: 1;
+  text-align: right;
+}
+
+/* جدول هزینه‌ها */
+.ni-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 2px solid #333;
+  font-size: 9px;
+}
+
+.ni-table th {
+  border: 1px solid #333;
+  padding: 4px;
+  text-align: center;
+  background: #e8e8e8;
+  font-weight: bold;
+  color: #333;
+  height: 20px;
   vertical-align: middle;
-
-  padding: 1px 3px;
-
-  overflow: hidden;
+  font-size: 8px;
 }
 
-.ni-table thead th {
-  height: 27%;
-
-  font-weight: 700;
-
-  line-height: 1.25;
-
-  white-space: normal;
+.ni-table td {
+  border: 1px solid #333;
+  padding: 3px;
+  text-align: right;
+  vertical-align: middle;
+  height: 18px;
 }
 
-.ni-table tbody tr:not(.ni-total-row) {
-  height: 24%;
+.ni-th-row {
+  width: 25px;
 }
 
-.ni-table tbody td {
-  font-weight: 400;
-
-  white-space: nowrap;
+.ni-th-amount {
+  width: 60px;
 }
 
-.ni-table .ni-amount {
-  direction: rtl;
+.ni-td-row {
+  text-align: center;
+  font-weight: 500;
+  width: 25px;
+}
+
+.ni-td-amount {
+  text-align: left;
+  font-weight: 500;
 }
 
 .ni-total-row {
-  height: 25%;
-
-  font-weight: 600;
+  background: #f0f0f0;
+  font-weight: bold;
 }
 
-.ni-total-row td:first-child {
+/* بخش پایین - درخواست و تایید */
+.ni-bottom-section {
+  border: 2px solid #333;
+}
+
+.ni-bottom-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ni-bottom-table td {
+  border: 1px solid #333;
+  padding: 8px;
+  vertical-align: top;
+  width: 50%;
+}
+
+.ni-cell-header {
   text-align: center;
-}
-
-
-/* =========================================================
-   REASON / EXPLANATION
-========================================================= */
-
-.ni-reason-section {
-  width: calc(100% - 29px);
-
-  height: 17%;
-
-  margin-right: 29px;
-
-  display: grid;
-
-  grid-template-columns:
-    72%
-    28%;
-
-  direction: ltr;
-
-  border-bottom: 1px solid #111;
-}
-
-
-/* =========================================================
-   REASON TEXT
-========================================================= */
-
-.ni-reason-text {
-  direction: rtl;
-
-  padding: 5px 8px;
-
-  border-left: 1px solid #111;
-
-  font-size:
-    clamp(
-      6px,
-      .65vw,
-      9px
-    );
-}
-
-.ni-reason-title {
-  font-weight: 500;
-
+  font-weight: bold;
+  font-size: 10px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #333;
   margin-bottom: 5px;
-
-  white-space: nowrap;
 }
 
-.ni-dotted-line {
-  height: 17px;
+.ni-reason-field {
+  font-size: 9px;
+  margin-bottom: 8px;
+}
 
-  border-bottom: 1px dotted #111;
+.ni-reason-line {
+  min-height: 20px;
+  border: 1px solid #ccc;
+  padding: 3px;
+  margin-top: 2px;
+  font-size: 8px;
+}
 
+.ni-approval-checkboxes-cell {
+  font-size: 9px;
+  margin-bottom: 8px;
   display: flex;
-
-  align-items: flex-end;
-
-  overflow: hidden;
-
-  white-space: nowrap;
+  gap: 15px;
 }
 
-
-/* =========================================================
-   REQUESTER SIGNATURE
-========================================================= */
-
-.ni-requester-sign {
-  direction: rtl;
-
+.ni-approval-checkboxes-cell label {
   display: flex;
-
-  align-items: flex-start;
-
-  justify-content: flex-start;
-
-  padding: 6px;
-
-  font-size:
-    clamp(
-      6px,
-      .65vw,
-      9px
-    );
-
-  gap: 5px;
-}
-
-.ni-signature-space {
-  font-weight: 500;
-
-  overflow: hidden;
-
-  white-space: nowrap;
-}
-
-
-/* =========================================================
-   APPROVAL
-========================================================= */
-
-.ni-approval {
-  width: calc(100% - 29px);
-
-  height: 14%;
-
-  margin-right: 29px;
-
-  display: grid;
-
-  grid-template-columns:
-    27%
-    55%
-    18%;
-
-  direction: ltr;
-
-  border-bottom: 1px solid #111;
-}
-
-
-/* =========================================================
-   APPROVAL TITLE
-========================================================= */
-
-.ni-approval-title {
-  direction: rtl;
-
-  display: flex;
-
   align-items: center;
-
-  justify-content: center;
-
-  text-align: center;
-
-  border-left: 1px solid #111;
-
-  font-size:
-    clamp(
-      6px,
-      .65vw,
-      9px
-    );
-
-  font-weight: 500;
-}
-
-
-/* =========================================================
-   APPROVAL CONTENT
-========================================================= */
-
-.ni-approval-content {
-  direction: rtl;
-
-  display: flex;
-
-  align-items: center;
-
-  justify-content: center;
-
-  gap: 18px;
-
-  padding: 3px 8px;
-
-  border-left: 1px solid #111;
-
-  font-size:
-    clamp(
-      6px,
-      .62vw,
-      8px
-    );
-
-  white-space: nowrap;
-}
-
-.ni-approval-content label {
-  display: flex;
-
-  align-items: center;
-
-  gap: 5px;
-
+  gap: 4px;
   cursor: pointer;
 }
 
-.ni-checkbox {
-  width: 13px;
-  height: 13px;
-
-  border: 1px solid #111;
-
-  display: inline-block;
-
-  background: #fff;
+.ni-approval-checkboxes-cell input[type="checkbox"] {
+  width: 12px;
+  height: 12px;
+  cursor: pointer;
 }
 
-
-/* =========================================================
-   APPROVAL SIGNATURE
-========================================================= */
-
-.ni-approval-sign {
-  direction: rtl;
-
-  display: flex;
-
-  align-items: center;
-
-  justify-content: center;
-
+.ni-sig-field {
   text-align: center;
-
-  font-size:
-    clamp(
-      6px,
-      .65vw,
-      9px
-    );
+  font-size: 8px;
+  padding-top: 5px;
+  border-top: 1px dotted #666;
 }
 
-
-/* =========================================================
-   BOTTOM DESCRIPTION
-========================================================= */
-
-.ni-description {
-  width: calc(100% - 29px);
-
-  margin-right: 29px;
-
-  flex: 1;
-
-  min-height: 0;
-
+.ni-sig-space {
+  min-height: 30px;
   display: flex;
-
   align-items: center;
-
-  gap: 7px;
-
-  padding: 0 8px;
-
-  direction: rtl;
-
-  font-size:
-    clamp(
-      6px,
-      .65vw,
-      9px
-    );
+  justify-content: center;
+  font-size: 9px;
 }
 
-.ni-description > span {
-  white-space: nowrap;
+/* توضیحات */
+.ni-notes-field {
+  padding: 8px;
+  border: 2px solid #333;
+  font-size: 9px;
+  text-align: right;
+  border-top: 1px solid #333;
 }
 
-.ni-description > div {
-  flex: 1;
-
-  min-width: 0;
-
-  height: 16px;
-
-  border-bottom: 1px dotted #111;
-
-  overflow: hidden;
-
-  white-space: nowrap;
+.ni-notes-field span {
+  border-bottom: 1px dotted #666;
+  padding: 0 4px;
+  display: inline-block;
+  min-width: 400px;
 }
 
+/* ============================================================
+   NO INVOICE PREVIEW
+   ============================================================ */
 
-/* =========================================================
-   JALALI DATE PICKER
-========================================================= */
-
-.jalali-picker {
-  direction: rtl;
+.no-invoice-preview-wrap {
+  margin-top: 20px;
 }
 
-.jalali-picker input {
-  width: 100%;
-
-  min-height: 38px;
-
-  border: 1px solid #d3d8de;
-
-  border-radius: 7px;
-
-  background: #fff;
-
-  padding: 7px 10px;
-
-  color: #20252b;
-
-  font-size: 12px;
-
-  transition:
-    border-color .15s ease,
-    box-shadow .15s ease;
+.no-invoice-pages {
+  display: flex;
+  flex-direction: column;
 }
 
-.jalali-picker input:focus {
-  border-color: #6b737c;
-
-  box-shadow:
-    0 0 0 3px rgba(70, 80, 90, .08);
-}
-
-.jalali-calendar {
-  direction: rtl;
-
-  font-family:
-    Tahoma,
-    Arial,
-    sans-serif;
-}
-
-.jalali-calendar button {
-  font-family: inherit;
-}
-
-
-/* =========================================================
-   SCROLLBAR
-========================================================= */
-
-.control-panel::-webkit-scrollbar {
-  width: 7px;
-}
-
-.control-panel::-webkit-scrollbar-track {
-  background: #f4f5f6;
-}
-
-.control-panel::-webkit-scrollbar-thumb {
-  background: #c7ccd2;
-
-  border-radius: 10px;
-}
-
-.control-panel::-webkit-scrollbar-thumb:hover {
-  background: #aeb5bc;
-}
-
-
-/* =========================================================
+/* ============================================================
    RESPONSIVE
-========================================================= */
+   ============================================================ */
 
-@media (max-width: 1100px) {
-
-  .control-panel {
-    width: 350px;
-    min-width: 350px;
-  }
-
-  .preview-area {
-    padding: 20px;
-  }
-
-  .editor-row {
-    grid-template-columns:
-      25px
-      1fr
-      95px
-      1.3fr
-      85px;
-  }
-
-}
-
-
-@media (max-width: 850px) {
-
+@media (max-width: 1024px) {
   .app-shell {
-    display: block;
+    flex-direction: column;
   }
 
   .control-panel {
-    position: relative;
-
-    width: 100%;
-    min-width: 0;
-
-    min-height: auto;
-
+    flex: 1;
     max-height: none;
-
-    border-left: 0;
-
-    border-bottom: 1px solid #d8dce1;
-
-    box-shadow:
-      0 4px 18px rgba(0, 0, 0, .08);
   }
 
-  .preview-area {
-    width: 100%;
-
-    overflow-x: auto;
-
-    align-items: flex-start;
+  .preview-wrap {
+    flex: 1;
   }
 
-  .preview-note {
-    align-self: center;
+  .three-col,
+  .ni-form-grid {
+    grid-template-columns: 1fr 1fr;
   }
 
+  .ni-requester-fields {
+    grid-template-columns: 1fr;
+  }
 }
 
-
-@media (max-width: 600px) {
-
+@media (max-width: 768px) {
   .control-panel {
-    padding: 18px 14px;
+    flex: 1;
   }
 
-  .control-grid,
-  .control-grid.three {
+  .two-col,
+  .three-col,
+  .ni-form-grid {
     grid-template-columns: 1fr;
   }
 
-  .editor-row {
-    grid-template-columns:
-      25px
-      1fr;
+  .paper {
+    padding: 10px;
   }
 
-  .editor-row select,
-  .editor-row .description-input,
-  .editor-row input:last-child {
-    grid-column: 2;
+  .expense-table,
+  .ni-table-new {
+    font-size: 9px;
   }
 
-  .action-grid {
-    grid-template-columns: 1fr;
+  .expense-table th,
+  .expense-table td,
+  .ni-table-new th,
+  .ni-table-new td {
+    padding: 4px;
   }
-
-  .preview-area {
-    padding: 12px;
-  }
-
 }
 
-
-/* =========================================================
-   PRINT
-========================================================= */
+/* ============================================================
+   PRINT STYLES  — جلوگیری از صفحات خالی اضافی
+   ============================================================ */
 
 @media print {
-
-  @page {
-    size: A4 landscape;
-
-    margin: 0;
-  }
-
-  html,
-  body {
-    width: 100%;
-    height: 100%;
-
-    margin: 0;
-    padding: 0;
-
+  html, body {
     background: #fff !important;
-  }
-
-  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
 
-  .no-print {
+  .no-print,
+  .control-panel,
+  .preview-label,
+  .ni-status,
+  .ni-actions,
+  .actions,
+  button {
     display: none !important;
   }
 
   .app-shell {
-    display: block;
-
-    width: 100%;
-
-    min-height: 0;
-
-    background: #fff !important;
-  }
-
-  .preview-area {
-    display: block;
-
-    width: 100%;
-
-    padding: 0;
-
-    margin: 0;
-
-    overflow: visible;
-  }
-
-  .paper {
-    box-shadow: none !important;
-
+    display: block !important;
+    flex-direction: column;
+    gap: 0;
+    padding: 0 !important;
     margin: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
 
+  .preview-wrap {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  /* هر فرم روی یک صفحه — بدون صفحه خالی بعد از آخرین */
+  .paper,
+  .ni-copy {
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 8mm 6mm !important;
+    border-radius: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    page-break-inside: avoid;
     break-inside: avoid;
+    page-break-after: always;
+    break-after: page;
+  }
 
+  /* آخرین صفحه break نداشته باشد تا صفحه خالی نسازد */
+  .paper:last-of-type,
+  .ni-copy:last-of-type,
+  .no-invoice-pages .ni-copy:last-child {
+    page-break-after: auto !important;
+    break-after: auto !important;
+  }
+
+  .no-invoice-preview-wrap {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .no-invoice-pages {
+    display: block !important;
+  }
+
+  /* جلوگیری از overflow که صفحه خالی می‌سازد */
+  table {
     page-break-inside: avoid;
   }
 
-  .main-paper,
-  .no-invoice-paper {
-    width: 100% !important;
-
-    max-width: none !important;
-
-    height: 100vh;
-
-    max-height: 100vh;
-  }
-
-  .main-paper {
-    aspect-ratio: auto;
-  }
-
-  .no-invoice-paper {
-    aspect-ratio: auto;
-  }
-
-  .main-paper + .no-invoice-paper {
-    break-before: page;
-
-    page-break-before: always;
-  }
-
-  .no-invoice-paper:not(:first-of-type) {
-    break-before: page;
-
-    page-break-before: always;
-  }
-}
-
-
-/* =========================================================
-   PRINT - PRESERVE BORDERS / COLORS
-========================================================= */
-
-@media print {
-
-  .main-header,
-  .header-codes,
-  .header-title,
-  .expense-table th,
-  .expense-table td,
-  .signature-row > div,
-
-  .ni-outer-border,
-  .ni-frame,
-  .ni-header,
-  .ni-codes,
-  .ni-codes > div,
-  .ni-header-title,
-  .ni-date-row,
-  .ni-person-row,
-  .ni-field,
-  .ni-table th,
-  .ni-table td,
-  .ni-reason-section,
-  .ni-reason-text,
-  .ni-approval,
-  .ni-approval-title,
-  .ni-approval-content,
-  .ni-description,
-  .ni-side-label {
-    -webkit-print-color-adjust: exact;
-
-    print-color-adjust: exact;
-  }
-}
-
-
-/* =========================================================
-   EXTRA SMALL PAPER SCALING
-========================================================= */
-
-@media (max-width: 700px) {
-
-  .ni-side-label {
-    width: 22px;
-  }
-
-  .ni-header,
-  .ni-date-row,
-  .ni-person-row,
+  .header-table,
+  .expense-table,
+  .signatures-table,
+  .ni-header-table,
   .ni-table,
-  .ni-reason-section,
-  .ni-approval,
-  .ni-description {
-    width: calc(100% - 22px);
-
-    margin-right: 22px;
+  .ni-bottom-table {
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
 
-  .ni-approval-content {
-    gap: 7px;
+  /* سایز فونت و ارتفاع ردیف‌ها برای جا شدن در یک صفحه A4 */
+  .expense-table td,
+  .expense-table th {
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 3px 2px !important;
   }
 
+  .sig-cell {
+    min-height: 45px !important;
+  }
+
+  .sig-space {
+    min-height: 28px !important;
+  }
+
+  .ni-copy {
+    border: 1.5px solid #000 !important;
+  }
 }
