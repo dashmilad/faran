@@ -1086,88 +1086,59 @@ function App() {
           {rows.map(
             (row, index) => (
 
-              <div
-                className="editor-row"
-                key={index}
-              >
+<div className="editor-row">
+  <span>{index + 1}</span>
 
-                <span>
-                  {index + 1}
-                </span>
+  <input
+    value={row.place}
+    onChange={e =>
+      updateRow(index, 'place', e.target.value)
+    }
+    placeholder="محل / شرکت"
+  />
 
-                <input
-                  value={
-                    row.place
-                  }
-                  onChange={e =>
-                    updateRow(
-                      index,
-                      'place',
-                      e.target.value
-                    )
-                  }
-                  placeholder="محل / شرکت"
-                />
+  <select
+    value={row.service}
+    onChange={e =>
+      updateRow(index, 'service', e.target.value)
+    }
+  >
+    <option value="">نوع خدمات</option>
 
-                <select
-                  value={
-                    row.service
-                  }
-                  onChange={e =>
-                    updateRow(
-                      index,
-                      'service',
-                      e.target.value
-                    )
-                  }
-                >
-                  <option value="">
-                    نوع خدمات
-                  </option>
+    {serviceOptions.map(option => (
+      <option key={option} value={option}>
+        {option}
+      </option>
+    ))}
+  </select>
 
-                  {serviceOptions.map(
-                    option => (
-                      <option
-                        key={option}
-                        value={option}
-                      >
-                        {option}
-                      </option>
-                    )
-                  )}
-                </select>
+  <input
+    value={row.invoice}
+    onChange={e =>
+      updateRow(index, 'invoice', e.target.value)
+    }
+    placeholder="شماره فاکتور"
+  />
 
-                <input
-                  className="description-input"
-                  value={
-                    row.description
-                  }
-                  onChange={e =>
-                    updateRow(
-                      index,
-                      'description',
-                      e.target.value
-                    )
-                  }
-                  placeholder="شرح هزینه"
-                />
+  <input
+    className="description-input"
+    value={row.description}
+    onChange={e =>
+      updateRow(index, 'description', e.target.value)
+    }
+    placeholder="شرح هزینه"
+  />
 
-                <input
-                  value={
-                    row.amount
-                  }
-                  onChange={e =>
-                    updateRow(
-                      index,
-                      'amount',
-                      e.target.value
-                    )
-                  }
-                  inputMode="numeric"
-                  placeholder="مبلغ"
-                />
+  <input
+    value={row.amount}
+    onChange={e =>
+      updateRow(index, 'amount', e.target.value)
+    }
+    inputMode="numeric"
+    placeholder="مبلغ"
+  />
+</div>
 
-              </div>
 
             )
           )}
