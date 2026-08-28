@@ -1113,14 +1113,6 @@ function App() {
   </select>
 
   <input
-    value={row.invoice}
-    onChange={e =>
-      updateRow(index, 'invoice', e.target.value)
-    }
-    placeholder="شماره فاکتور"
-  />
-
-  <input
     className="description-input"
     value={row.description}
     onChange={e =>
