@@ -1409,10 +1409,7 @@ function NoInvoiceForm({
             </b>
           </div>
 
-          <div className="ni-reason">
-            <span>
-              علت عدم ارائه فاکتور:
-            </span>
+         
 
             <b>
               {
