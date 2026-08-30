@@ -313,7 +313,7 @@ button, input, select { font: inherit; }
 
 .ni-title { 
   display: flex; 
-  justify-content: center; 
+  justify-content:  flex-start; 
   align-items: center; 
   text-align: center; 
   font-size: 13px; 
