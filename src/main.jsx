@@ -1,171 +1,809 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
-import './style.css';
+import './styles.css';
 
 const LOGO_SRC = `${import.meta.env.BASE_URL}logo.png`;
 
-const emptyRow = (date = '') => ({ date, place: '', service: '', invoice: '', description: '', amount: '' });
-const initialRows = Array.from({ length: 8 }, () => emptyRow(''));
+const emptyRow = () => ({
+  date: '',
+  place: '',
+  service: '',
+  invoice: '',
+  description: '',
+  amount: ''
+});
 
-const serviceOptions = ['PM', 'نصب اولیه', 'بازدید فنی', 'بازدید فروش', 'اعلام خرابی'];
-const noInvoiceKeywords = ['تاکسی', 'ناهار', 'صبحانه', 'شام', 'پذیرایی', 'پارکینگ', 'بنزین', 'سوخت', 'بلیط', 'اقامت', 'هتل', 'مترو', 'اتوبوس'];
+const initialRows = Array.from({ length: 8 }, emptyRow);
 
-function div(a, b) { return Math.floor(a / b); }
-function mod(a, b) { return a - Math.floor(a / b) * b; }
-
-function gregorianToJalali(gy, gm, gd) {
-  const gdm = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
-  let jy;
-  if (gy > 1600) { jy = 979; gy -= 1600; } else { jy = 0; gy -= 621; }
-  const gy2 = gm > 2 ? gy + 1 : gy;
-  let days = 365 * gy + div(gy2 + 3, 4) - div(gy2 + 99, 100) + div(gy2 + 399, 400) - 80 + gd + gdm[gm - 1];
-  jy += 33 * div(days, 12053); days = mod(days, 12053);
-  jy += 4 * div(days, 1461); days = mod(days, 1461);
-  if (days > 365) { jy += div(days - 1, 365); days = mod(days - 1, 365); }
-  const jm = days < 186 ? 1 + div(days, 31) : 7 + div(days - 186, 30);
-  const jd = 1 + (days < 186 ? mod(days, 31) : mod(days - 186, 30));
-  return [jy, jm, jd];
+function numberValue(value) {
+  return Number(String(value ?? '').replace(/,/g, '')) || 0;
 }
 
-function jalaliToGregorian(jy, jm, jd) {
-  if (jy < 1 || jm < 1 || jm > 12 || jd < 1) return [1400, 1, 1];
-  let gy;
-  if (jy > 979) { gy = 1600; jy -= 979; } else gy = 621;
-  const days = 365 * jy + div(jy, 33) * 8 + div(mod(jy, 33) + 3, 4) + 78 + jd + (jm < 7 ? (jm - 1) * 31 : (jm - 7) * 30 + 186);
-  gy += 400 * div(days, 146097);
-  let d = mod(days, 146097);
-  if (d > 36524) { gy += 100 * div(--d, 36524); d = mod(d, 36524); if (d >= 365) d++; }
-  gy += 4 * div(d, 1461); d = mod(d, 1461);
-  if (d > 365) { gy += div(d - 1, 365); d = mod(d - 1, 365); }
-  const gd = d + 1;
-  const leap = (gy % 4 === 0 && gy % 100 !== 0) || gy % 400 === 0;
-  const monthDays = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-  let gm = 1, day = gd;
-  for (let i = 0; i < monthDays.length; i++) { if (day <= monthDays[i]) { gm = i + 1; break; } day -= monthDays[i]; }
-  return [gy, gm, day];
+function formatMoney(value) {
+  const n = numberValue(value);
+  if (!n) return '';
+  return new Intl.NumberFormat('fa-IR').format(n);
 }
 
-function getJalaliToday() {
-  const now = new Date();
-  const [jy, jm, jd] = gregorianToJalali(now.getFullYear(), now.getMonth() + 1, now.getDate());
-  return { year: jy, month: jm, day: jd };
-}
-function formatJalaliDate(year, month, day) { return `${year}/${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}`; }
-const jalaliMonths = ['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
-const weekDays = ['شنبه','یکشنبه','دوشنبه','سه‌شنبه','چهارشنبه','پنجشنبه','جمعه'];
-function getMonthDays(year, month) {
-  if (month <= 6) return 31;
-  if (month <= 11) return 30;
-  const [gy] = jalaliToGregorian(year, 12, 1), [gyNext] = jalaliToGregorian(year + 1, 1, 1);
-  return Math.round((new Date(gyNext, 2, 19) - new Date(gy, 2, 19)) / 86400000) > 365 ? 30 : 29;
-}
-function getFirstWeekday(year, month) {
-  const [gy, gm, gd] = jalaliToGregorian(year, month, 1);
-  return (new Date(gy, gm - 1, gd).getDay() + 1) % 7;
+function extractExpenseTitle(description) {
+  const text = String(description || '').trim();
+  if (!text) return '';
+  const keywords = [
+    'تاکسی', 'ناهار', 'صبحانه', 'شام', 'پذیرایی', 'پارکینگ',
+    'بنزین', 'سوخت', 'بلیط', 'بلیت', 'اقامت', 'هتل',
+    'مترو', 'اتوبوس', 'اسنپ', 'تپسی'
+  ];
+  const found = keywords.find(keyword => text.includes(keyword));
+  return found || text;
 }
 
-function PersianDatePicker({ value, onChange }) {
-  const today = getJalaliToday();
-  const [open, setOpen] = useState(false);
-  const parseValue = value => {
-    const match = String(value || '').match(/^(\d{4})\s*\/\s*(\d{1,2})\s*\/\s*(\d{1,2})$/);
-    return match ? { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) } : today;
-  };
-  const selected = parseValue(value);
-  const [viewYear, setViewYear] = useState(selected.year);
-  const [viewMonth, setViewMonth] = useState(selected.month);
-  const days = [];
-  for (let i = 0; i < getFirstWeekday(viewYear, viewMonth); i++) days.push(null);
-  for (let day = 1; day <= getMonthDays(viewYear, viewMonth); day++) days.push(day);
-  while (days.length % 7 !== 0) days.push(null);
-  const previousMonth = useCallback(() => { if (viewMonth === 1) { setViewMonth(12); setViewYear(v => v - 1); } else setViewMonth(v => v - 1); }, [viewMonth]);
-  const nextMonth = useCallback(() => { if (viewMonth === 12) { setViewMonth(1); setViewYear(v => v + 1); } else setViewMonth(v => v + 1); }, [viewMonth]);
-  const selectDay = useCallback(day => { if (!day) return; onChange(formatJalaliDate(viewYear, viewMonth, day)); setOpen(false); }, [viewYear, viewMonth, onChange]);
-  const goToday = useCallback(() => { setViewYear(today.year); setViewMonth(today.month); onChange(formatJalaliDate(today.year, today.month, today.day)); setOpen(false); }, [today, onChange]);
-  return <div className="jalali-picker" style={{ position:'relative', width:'100%' }}>
-    <div style={{ position:'relative', width:'100%' }}>
-      <input value={value} readOnly onClick={() => { setViewYear(selected.year); setViewMonth(selected.month); setOpen(v => !v); }} placeholder="انتخاب تاریخ" style={{ cursor:'pointer', paddingLeft:'38px' }} />
-      <button type="button" onClick={() => { setViewYear(selected.year); setViewMonth(selected.month); setOpen(v => !v); }} aria-label="باز کردن تقویم" style={{ position:'absolute', left:'6px', top:'50%', transform:'translateY(-50%)', width:'28px', height:'28px', border:0, background:'transparent', cursor:'pointer', fontSize:'17px', padding:0 }}>📅</button>
-    </div>
-    {open && <div className="jalali-calendar" style={{ position:'absolute', top:'calc(100% + 7px)', right:0, width:'300px', background:'#fff', border:'1px solid #d5dae0', borderRadius:'12px', boxShadow:'0 12px 35px rgba(0,0,0,.18)', padding:'12px', zIndex:9999, direction:'rtl' }}>
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'10px' }}>
-        <button type="button" onClick={nextMonth} style={{ border:0, background:'#f1f3f5', borderRadius:'7px', width:'32px', height:'32px', cursor:'pointer', fontSize:'18px' }}>‹</button>
-        <strong style={{ fontSize:'14px' }}>{jalaliMonths[viewMonth - 1]} {viewYear}</strong>
-        <button type="button" onClick={previousMonth} style={{ border:0, background:'#f1f3f5', borderRadius:'7px', width:'32px', height:'32px', cursor:'pointer', fontSize:'18px' }}>›</button>
-      </div>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:'3px', marginBottom:'5px' }}>{weekDays.map(day => <div key={day} style={{ textAlign:'center', fontSize:'10px', fontWeight:700, color:'#69717c', padding:'4px 0' }}>{day.slice(0,1)}</div>)}</div>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:'3px' }}>{days.map((day,index) => { const isSelected = day === selected.day && viewMonth === selected.month && viewYear === selected.year; const isToday = day === today.day && viewMonth === today.month && viewYear === today.year; return <button type="button" key={`${viewYear}-${viewMonth}-${index}`} disabled={!day} onClick={() => selectDay(day)} style={{ height:'32px', border:isSelected?'1px solid #20252b':isToday?'1px solid #8b939c':'1px solid transparent', borderRadius:'7px', background:isSelected?'#20252b':isToday?'#eef0f2':'#fff', color:isSelected?'#fff':'#222', cursor:day?'pointer':'default', fontSize:'11px', fontWeight:isSelected||isToday?700:400 }}>{day || ''}</button>; })}</div>
-      <button type="button" onClick={goToday} style={{ width:'100%', height:'32px', marginTop:'9px', border:0, borderRadius:'7px', background:'#eef0f2', cursor:'pointer', fontSize:'11px', fontWeight:700 }}>امروز</button>
-    </div>}
-  </div>;
+function chunkArray(array, size) {
+  const result = [];
+  for (let i = 0; i < array.length; i += size) {
+    result.push(array.slice(i, i + size));
+  }
+  return result;
 }
-
-function sanitizeInput(value) { return String(value || '').trim(); }
-function numberValue(value) { const num = Number(String(value ?? '').replace(/[٬,،\s]/g,'')) || 0; return isFinite(num) ? num : 0; }
-function formatMoney(value) { const n = numberValue(value); return n ? new Intl.NumberFormat('fa-IR').format(n) : ''; }
-function extractNoInvoiceItems(description) { const text = sanitizeInput(description); if (!text) return []; return noInvoiceKeywords.filter(keyword => text.includes(keyword)); }
-function chunk(array, size) { const out=[]; for (let i=0;i<array.length;i+=size) out.push(array.slice(i,i+size)); return out; }
 
 function App() {
-  const [header,setHeader] = useState({ title:'فرم صورت ریز هزینه های تنخواه واحد خدمات', docCode:'FI-B-FO-112/00', refCode:'FI-B-RE-001/00', date:'1405/  /  ' });
-  const [rows,setRows] = useState(initialRows);
-  const [signatures,setSignatures] = useState({ requester:'', confirmer:'', approver:'' });
-  const [noInvoice,setNoInvoice] = useState({ formCode:'FI-B-FO-135/00', refCode:'FI-B-RE-001/00', date:'1405/  /  ', requester:'', position:'', organization:'', reason:'', notes:'' });
-  const [busy,setBusy] = useState(false), [noInvoiceBusy,setNoInvoiceBusy] = useState(false), [error,setError] = useState(null);
-  const total = useMemo(() => rows.reduce((sum,row) => sum + numberValue(row.amount),0),[rows]);
-  const noInvoiceItems = useMemo(() => { const items=[]; rows.forEach(row => { const description=sanitizeInput(row.description), amount=numberValue(row.amount); if (!description || amount<=0) return; extractNoInvoiceItems(description).forEach(keyword => items.push({ product:keyword, provider:row.place, date:row.date || header.date, qty:'1', unitAmount:String(amount), total:String(amount) })); }); return items; },[rows,header.date]);
-  const noInvoiceForms = useMemo(() => chunk(noInvoiceItems,3),[noInvoiceItems]);
-  const updateHeader = useCallback((key,value) => setHeader(prev => ({...prev,[key]:sanitizeInput(value)})),[]);
-  const updateDate = useCallback(value => { const sanitized=sanitizeInput(value); setHeader(prev => ({...prev,date:sanitized})); setRows(prev => prev.map(row => ({...row,date:sanitized}))); setNoInvoice(prev => ({...prev,date:sanitized})); },[]);
-  const updateRow = useCallback((index,key,value) => setRows(prev => prev.map((row,i) => i===index ? {...row,[key]:sanitizeInput(value)} : row)),[]);
-  const updateSignature = useCallback((key,value) => setSignatures(prev => ({...prev,[key]:sanitizeInput(value)})),[]);
-  const updateNoInvoice = useCallback((key,value) => setNoInvoice(prev => ({...prev,[key]:sanitizeInput(value)})),[]);
-  const reset = useCallback(() => { setRows(Array.from({length:8},() => emptyRow(header.date))); setSignatures({requester:'',confirmer:'',approver:''}); setNoInvoice({formCode:'FI-B-FO-135/00',refCode:header.refCode,date:header.date,requester:'',position:'',organization:'',reason:'',notes:''}); setError(null); },[header.date,header.refCode]);
-  const waitForImages = async node => { const images=[...node.querySelectorAll('img')]; await Promise.all(images.map(img => img.complete ? Promise.resolve() : new Promise(resolve => { img.onload=resolve; img.onerror=resolve; }))); };
-  const exportMainPdf = useCallback(async () => { const node=document.getElementById('main-print'); if(!node){setError('خطا: عنصر چاپ یافت نشد');return;} setBusy(true);setError(null);try{await waitForImages(node);const canvas=await html2canvas(node,{scale:3,backgroundColor:'#fff',useCORS:true,logging:false});const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a4',compress:true});pdf.addImage(canvas.toDataURL('image/png'),'PNG',0,0,297,210,undefined,'FAST');pdf.save(`فرم-تنخواه-${header.date||'بدون-تاریخ'}.pdf`);}catch(err){setError(`خطا در صادرات PDF: ${err.message}`);console.error('PDF Export Error:',err);}finally{setBusy(false);}},[header.date]);
-  const exportNoInvoicePdf = useCallback(async () => { if(!noInvoiceForms.length){setError('هیچ فرم بدون فاکتور برای صادرات وجود ندارد');return;} setNoInvoiceBusy(true);setError(null);try{const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4',compress:true});let first=true;for(let i=0;i<noInvoiceForms.length;i+=1){const node=document.getElementById(`no-invoice-${i}`);if(!node)continue;await waitForImages(node);const canvas=await html2canvas(node,{scale:3,backgroundColor:'#fff',useCORS:true,logging:false});if(!first)pdf.addPage();first=false;pdf.addImage(canvas.toDataURL('image/png'),'PNG',0,0,210,297,undefined,'FAST');}if(!first)pdf.save(`فرم-بدون-فاکتور-${header.date||'بدون-تاریخ'}.pdf`);}catch(err){setError(`خطا در صادرات PDF: ${err.message}`);console.error('PDF Export Error:',err);}finally{setNoInvoiceBusy(false);}},[noInvoiceForms,header.date]);
-  const printAll = useCallback(() => window.print(),[]);
-  return <div className="app-shell" dir="rtl">
-    <aside className="control-panel no-print">
-      <div className="panel-title">فرم صورت هزینه</div><div className="panel-subtitle">نسخه طراحی‌شده برای چاپ A4</div>
-      {error && <div className="error-message">{error}<button onClick={() => setError(null)}>✕</button></div>}
-      <div className="control-group"><label>تاریخ فرم</label><PersianDatePicker value={header.date} onChange={updateDate}/></div>
-      <div className="control-grid"><div className="control-group"><label>کد سند</label><input value={header.docCode} onChange={e => updateHeader('docCode',e.target.value)}/></div><div className="control-group"><label>کد سند مرجع</label><input value={header.refCode} onChange={e => updateHeader('refCode',e.target.value)}/></div></div>
-      <div className="section-label">اطلاعات ۸ ردیف هزینه</div>
-      <div className="editor-table">{rows.map((row,index) => <div className="editor-row" key={index}><span>{index+1}</span><input value={row.place} onChange={e => updateRow(index,'place',e.target.value)} placeholder="محل / شرکت"/><select value={row.service} onChange={e => updateRow(index,'service',e.target.value)}><option value="">نوع خدمات</option>{serviceOptions.map(option => <option key={option} value={option}>{option}</option>)}</select><input className="description-input" value={row.description} onChange={e => updateRow(index,'description',e.target.value)} placeholder="شرح هزینه"/><input value={row.amount} onChange={e => updateRow(index,'amount',e.target.value)} inputMode="numeric" placeholder="مبلغ"/></div>)}</div>
-      <div className="section-label">امضاها</div><div className="control-grid three"><div className="control-group"><label>تنظیم‌کننده</label><input value={signatures.requester} onChange={e => updateSignature('requester',e.target.value)}/></div><div className="control-group"><label>تأییدکننده</label><input value={signatures.confirmer} onChange={e => updateSignature('confirmer',e.target.value)}/></div><div className="control-group"><label>تصویب‌کننده</label><input value={signatures.approver} onChange={e => updateSignature('approver',e.target.value)}/></div></div>
-      <div className="section-label">فرم بدون فاکتور</div><div className="control-grid"><div className="control-group"><label>درخواست‌کننده</label><input value={noInvoice.requester} onChange={e => updateNoInvoice('requester',e.target.value)}/></div><div className="control-group"><label>سمت</label><input value={noInvoice.position} onChange={e => updateNoInvoice('position',e.target.value)}/></div><div className="control-group"><label>واحد / سازمان</label><input value={noInvoice.organization} onChange={e => updateNoInvoice('organization',e.target.value)}/></div><div className="control-group"><label>علت عدم ارائه فاکتور</label><input value={noInvoice.reason} onChange={e => updateNoInvoice('reason',e.target.value)}/></div></div>
-      <div className="action-grid"><button onClick={exportMainPdf} disabled={busy}>{busy?'در حال ساخت PDF...':'PDF فرم اصلی'}</button><button onClick={exportNoInvoicePdf} disabled={noInvoiceBusy || !noInvoiceForms.length}>{noInvoiceBusy?'در حال ساخت...':`PDF بدون فاکتور (${noInvoiceForms.length})`}</button><button onClick={printAll}>چاپ</button><button className="secondary" onClick={reset}>پاک کردن اطلاعات</button></div>
-    </aside>
-    <main className="preview-area"><div className="preview-note no-print">پیش‌نمایش واقعی فرم — A4 افقی</div>
-      <section className="paper main-paper" id="main-print"><div className="form-frame"><header className="main-header"><div className="header-codes"><div>کد سند: <b>{header.docCode}</b></div><div>کد سند مرجع: <b>{header.refCode}</b></div><div>تاریخ: <b>{header.date}</b></div></div><div className="header-title">{header.title}</div><div className="header-logo"><img src={LOGO_SRC} alt="فاران"/></div></header>
-        <table className="expense-table"><colgroup><col className="col-row"/><col className="col-date"/><col className="col-place"/><col className="col-service"/><col className="col-invoice"/><col className="col-description"/><col className="col-amount"/></colgroup><thead><tr><th>ردیف</th><th>تاریخ</th><th>محل مراجعه/بانک/شرکت</th><th>نوع خدمات</th><th>شماره قرارداد-فاکتور</th><th>شرح هزینه</th><th>مبلغ هزینه (ریال)</th></tr></thead><tbody>{rows.map((row,index) => <tr key={index}><td>{index+1}</td><td>{row.date || header.date}</td><td>{row.place}</td><td>{row.service}</td><td>{row.invoice}</td><td className="description-cell">{row.description}</td><td className="amount-cell">{formatMoney(row.amount)}</td></tr>)}<tr className="total-row"><td colSpan="5"></td><td className="total-label">جمع کل هزینه:</td><td className="amount-cell">{formatMoney(total)}</td></tr></tbody><tfoot><tr><td colSpan="7">تاریخ واریز: ............................................................</td></tr></tfoot></table>
-        <div className="signature-row"><div><span>نام و امضاء<br/>تنظیم‌کننده:</span><b>{signatures.requester}</b></div><div><span>نام و امضاء<br/>تأییدکننده:</span><b>{signatures.confirmer}</b></div><div><span>نام و امضاء<br/>تصویب‌کننده:</span><b>{signatures.approver}</b></div></div>
-      </div></section>
-      {noInvoiceForms.map((items,pageIndex) => <NoInvoiceForm key={pageIndex} items={items} pageIndex={pageIndex} noInvoice={noInvoice} header={header}/>)}
-    </main>
-  </div>;
-}
+  const [header, setHeader] = useState({
+    title: 'فرم صورت ریز هزینه های تنخواه واحد خدمات',
+    docCode: 'FI-B-FO-112/00',
+    serviceCode: 'FI-B-RE-001/00',
+    date: '1404/05/27',
+    reviewDate: ''
+  });
 
-function NoInvoiceForm({items,pageIndex,noInvoice,header}) {
-  const total = items.reduce((sum,item) => sum + numberValue(item.total),0);
-  return <section className="paper no-invoice-paper" id={`no-invoice-${pageIndex}`}><div className="ni-frame">
-    <header className="ni-top"><div className="ni-code-box">
-      <div style={{direction:'rtl',justifyContent:'flex-start',textAlign:'right'}}>کد فرم: <b>{noInvoice.formCode}</b></div>
-      <div style={{direction:'rtl',justifyContent:'flex-start',textAlign:'right'}}>کد سند مرجع: <b>{noInvoice.refCode || header.refCode}</b></div>
-      <div style={{direction:'rtl',justifyContent:'flex-start',textAlign:'right'}}>تاریخ: <b>{header.date}</b></div>
-    </div><div className="ni-title">فرم صورت هزینه بدون فاکتور</div><div className="ni-logo"><img src={LOGO_SRC} alt="فاران"/></div></header>
-    <div className="ni-fields" style={{gridTemplateColumns:'1fr 3fr'}}>
-      <div><span>درخواست‌کننده:</span><b>{noInvoice.requester}</b></div>
-      <div><span>سمت:</span><b>{noInvoice.position}</b></div>
-      <div><span>واحد/سازمان:</span><b>{noInvoice.organization}</b></div>
-      <div className="ni-reason"><span>علت عدم ارائه فاکتور:</span><b>{noInvoice.reason}</b></div>
+  const [rows, setRows] = useState(initialRows);
+
+  const [noInvoice, setNoInvoice] = useState({
+    formCode: 'FI-B-FO-135/00',
+    referenceCode: 'FI-B-RE-001/00',
+    date: '1404/05/27',
+    requester: '',
+    position: '',
+    organization: '',
+    reason: '',
+    approverComment: '',
+    approved: null,
+    notes: ''
+  });
+
+  const [signatures, setSignatures] = useState({
+    requester: '',
+    confirmer: '',
+    issuer: ''
+  });
+
+  const [busy, setBusy] = useState(false);
+  const [noInvoiceBusy, setNoInvoiceBusy] = useState(false);
+
+  const total = useMemo(() => {
+    return rows.reduce((sum, row) => sum + numberValue(row.amount), 0);
+  }, [rows]);
+
+  const derivedNoInvoiceItems = useMemo(() => {
+    return rows
+      .filter(row => {
+        return (
+          String(row.description || '').trim() &&
+          numberValue(row.amount) > 0
+        );
+      })
+      .map(row => ({
+        product: extractExpenseTitle(row.description),
+        provider: row.place || '',
+        qty: '1',
+        unitAmount: String(numberValue(row.amount)),
+        total: String(numberValue(row.amount)),
+        date: row.date || header.date
+      }));
+  }, [rows, header.date]);
+
+  const noInvoicePages = useMemo(() => {
+    if (derivedNoInvoiceItems.length === 0) {
+      return [];
+    }
+    return chunkArray(derivedNoInvoiceItems, 3);
+  }, [derivedNoInvoiceItems]);
+
+  const hasNoInvoice = noInvoicePages.length > 0;
+
+  const updateRow = (index, key, value) => {
+    setRows(prev =>
+      prev.map((row, i) =>
+        i === index ? { ...row, [key]: value } : row
+      )
+    );
+  };
+
+  const updateHeaderDate = value => {
+    setHeader(prev => ({ ...prev, date: value }));
+    setRows(prev => prev.map(row => ({ ...row, date: value })));
+    setNoInvoice(prev => ({ ...prev, date: value }));
+  };
+
+  const printMainForm = () => {
+    window.print();
+  };
+
+  const printAllForms = () => {
+    window.print();
+  };
+
+  const exportPdf = async () => {
+    const node = document.getElementById('print-area');
+    if (!node) return;
+    setBusy(true);
+    try {
+      const canvas = await html2canvas(node, {
+        scale: 2.5,
+        backgroundColor: '#fff',
+        useCORS: true,
+        logging: false
+      });
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+        compress: true
+      });
+      const pageW = 210;
+      const pageH = 297;
+      const margin = 5;
+      const ratio = Math.min(
+        (pageW - margin * 2) / canvas.width,
+        (pageH - margin * 2) / canvas.height
+      );
+      const w = canvas.width * ratio;
+      const h = canvas.height * ratio;
+      pdf.addImage(
+        canvas.toDataURL('image/jpeg', 0.95),
+        'JPEG',
+        (pageW - w) / 2,
+        margin,
+        w,
+        h,
+        undefined,
+        'FAST'
+      );
+      pdf.save(`فرم-هزینه-${header.date || 'بدون-تاریخ'}.pdf`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const printNoInvoiceForm = () => {
+    if (!hasNoInvoice) return;
+    window.print();
+  };
+
+  const exportNoInvoicePdf = async () => {
+    if (!hasNoInvoice) return;
+    setNoInvoiceBusy(true);
+    try {
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+        compress: true
+      });
+      let addedPage = false;
+      for (let pageIndex = 0; pageIndex < noInvoicePages.length; pageIndex++) {
+        const node = document.getElementById(`no-invoice-print-page-${pageIndex}`);
+        if (!node) continue;
+        const canvas = await html2canvas(node, {
+          scale: 2.5,
+          backgroundColor: '#fff',
+          useCORS: true,
+          logging: false
+        });
+        if (addedPage) pdf.addPage();
+        const pageW = 210;
+        const pageH = 297;
+        const margin = 5;
+        const maxH = 287;
+        const ratio = Math.min(
+          (pageW - margin * 2) / canvas.width,
+          maxH / canvas.height
+        );
+        const w = canvas.width * ratio;
+        const h = canvas.height * ratio;
+        pdf.addImage(
+          canvas.toDataURL('image/jpeg', 0.96),
+          'JPEG',
+          (pageW - w) / 2,
+          margin,
+          w,
+          h,
+          undefined,
+          'FAST'
+        );
+        addedPage = true;
+      }
+      if (addedPage) {
+        pdf.save(`فرم-صورت-هزینه-بدون-فاکتور-${header.date || 'بدون-تاریخ'}.pdf`);
+      }
+    } finally {
+      setNoInvoiceBusy(false);
+    }
+  };
+
+  const reset = () => {
+    const newDate = header.date;
+    setRows(
+      Array.from({ length: 8 }, () => ({
+        ...emptyRow(),
+        date: newDate
+      }))
+    );
+    setHeader(prev => ({ ...prev, reviewDate: '' }));
+    setNoInvoice(prev => ({
+      ...prev,
+      date: newDate,
+      requester: '',
+      position: '',
+      organization: '',
+      reason: '',
+      approverComment: '',
+      approved: null,
+      notes: ''
+    }));
+    setSignatures({
+      requester: '',
+      confirmer: '',
+      issuer: ''
+    });
+  };
+
+  const NoInvoiceCopy = ({ items, pageIndex, totalPages }) => {
+    const pageTotal = items.reduce(
+      (sum, item) => sum + numberValue(item.total || item.unitAmount),
+      0
+    );
+
+    return (
+      <section
+        className="ni-copy"
+        id={`no-invoice-print-page-${pageIndex}`}
+      >
+        {/* سربرگ - جدول 2 سطری */}
+        <table className="ni-header-table">
+          <tbody>
+            <tr>
+              <td className="ni-header-codes">
+                <div>کد فرم : {noInvoice.formCode}</div>
+              </td>
+              <td className="ni-header-title" rowSpan="2">فرم صورت هزینه بدون فاکتور</td>
+              <td className="ni-header-logo" rowSpan="2">
+                <img src={LOGO_SRC} alt="فاران" className="ni-logo-img" />
+              </td>
+            </tr>
+            <tr>
+              <td className="ni-header-codes">
+                <div>کد سند مرجع : {noInvoice.referenceCode}</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* شماره صفحه */}
+        {totalPages > 1 && (
+          <div className="ni-page-info">
+            صفحه {pageIndex + 1} از {totalPages}
+          </div>
+        )}
+
+        {/* فیلدهای بالا */}
+        <div className="ni-top-section">
+          <div className="ni-date-line">
+            تاریخ : <span className="ni-date-input">{noInvoice.date || '......../......./.......'}</span>
+          </div>
+          <div className="ni-info-line">
+            <span>نام و نام خانوادگی درخواست کننده : <b>{noInvoice.requester || '...........................'}</b></span>
+            <span>واحد سازمانی : <b>{noInvoice.organization || '...............'}</b></span>
+            <span>شرح : <b>{noInvoice.reason || '.............................'}</b></span>
+          </div>
+        </div>
+
+        {/* جدول هزینه‌ها */}
+        <table className="ni-table">
+          <thead>
+            <tr>
+              <th className="ni-th-row">ردیف</th>
+              <th>مشخصات کالا / خدمات</th>
+              <th> تعداد</th>
+              <th>مبلغ واحد</th>
+              <th className="ni-th-amount">مبلغ (ریال)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.slice(0, 3).map((item, index) => (
+              <tr key={index}>
+                <td className="ni-td-row">{index + 1}</td>
+                <td>{item.product}</td>
+                <td>{item.provider}</td>
+                <td className="ni-td-amount">{formatMoney(item.total || item.unitAmount)}</td>
+              </tr>
+            ))}
+
+            {Array.from({ length: Math.max(0, 3 - items.length) }).map((_, index) => (
+              <tr key={`empty-${index}`}>
+                <td className="ni-td-row">{items.length + index + 1}</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td className="ni-td-amount"></td>
+              </tr>
+            ))}
+
+            <tr className="ni-total-row">
+              <td colSpan="7">جمع کل (ریال)</td>
+              <td className="ni-td-amount">{formatMoney(pageTotal)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* بخش درخواست کننده و تایید کننده */}
+        <div className="ni-bottom-section">
+          <table className="ni-bottom-table">
+            <tbody>
+              <tr>
+                <td className="ni-cell-requester">
+                  <div className="ni-cell-header">درخواست کننده</div>
+                  <div className="ni-reason-field">
+                    دلیل استفاده از کالا / خدمات :
+                    <div className="ni-reason-line">{noInvoice.reason || '......................................................................'}</div>
+                  </div>
+                  <div className="ni-sig-field">
+                    <div>امضاء درخواست کننده</div>
+                    <div className="ni-sig-space">{signatures.requester}</div>
+                  </div>
+                </td>
+                <td className="ni-cell-approver">
+                  <div className="ni-cell-header">تایید کننده</div>
+                  <div className="ni-approval-checkboxes-cell">
+                    <label>
+                      <input 
+                        type="checkbox" 
+                        checked={noInvoice.approved === true}
+                        readOnly
+                      />
+                      موافقت میشود
+                    </label>
+                    <label>
+                      <input 
+                        type="checkbox" 
+                        checked={noInvoice.approved === false}
+                        readOnly
+                      />
+                      موافقت نمیشود
+                    </label>
+                  </div>
+                  <div className="ni-sig-field">
+                    <div>امضاء تایید کننده</div>
+                    <div className="ni-sig-space">{signatures.confirmer}</div>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* توضیحات */}
+        <div className="ni-notes-field">
+          توضیحات : <span>{noInvoice.notes || '......................................................................'}</span>
+        </div>
+      </section>
+    );
+  };
+
+  return (
+    <div className="app-shell">
+      {/* کنترل پنل */}
+      <aside className="control-panel no-print">
+        <div className="panel-title">فرم ثبت هزینه</div>
+        <p className="hint">اطلاعات را وارد کنید؛ فرم برای چاپ A4 آماده می‌شود.</p>
+
+        {/* سربرگ */}
+        <section>
+          <h3>مشخصات سربرگ فرم اصلی</h3>
+          <label>
+            عنوان فرم
+            <input
+              value={header.title}
+              onChange={e => setHeader({ ...header, title: e.target.value })}
+            />
+          </label>
+          <div className="two-col">
+            <label>
+              کد سند
+              <input
+                value={header.docCode}
+                onChange={e => setHeader({ ...header, docCode: e.target.value })}
+              />
+            </label>
+            <label>
+              کد سند مرجع
+              <input
+                value={header.serviceCode}
+                onChange={e => setHeader({ ...header, serviceCode: e.target.value })}
+              />
+            </label>
+          </div>
+          <div className="two-col">
+            <label>
+              تاریخ
+              <input
+                value={header.date}
+                onChange={e => updateHeaderDate(e.target.value)}
+              />
+            </label>
+            <label>
+              تاریخ واریز
+              <input
+                value={header.reviewDate}
+                onChange={e => setHeader({ ...header, reviewDate: e.target.value })}
+              />
+            </label>
+          </div>
+        </section>
+
+        {/* ردیف‌های هزینه */}
+        <section>
+          <h3>ردیف‌های هزینه</h3>
+          <div className="mobile-table">
+            {rows.map((r, i) => (
+              <div className="row-editor" key={i}>
+                <b>ردیف {i + 1}</b>
+                <input
+                  placeholder="تاریخ"
+                  value={r.date}
+                  onChange={e => updateRow(i, 'date', e.target.value)}
+                />
+                <input
+                  placeholder="محل مراجعه (بانک/شرکت)"
+                  value={r.place}
+                  onChange={e => updateRow(i, 'place', e.target.value)}
+                />
+                <input
+                  placeholder="نوع خدمات"
+                  value={r.service}
+                  onChange={e => updateRow(i, 'service', e.target.value)}
+                />
+                <input
+                  placeholder="شماره قرارداد/فاکتور"
+                  value={r.invoice}
+                  onChange={e => updateRow(i, 'invoice', e.target.value)}
+                />
+                <input
+                  placeholder="شرح هزینه — مثال: تاکسی"
+                  value={r.description}
+                  onChange={e => updateRow(i, 'description', e.target.value)}
+                />
+                <input
+                  inputMode="numeric"
+                  placeholder="مبلغ (ریال)"
+                  value={r.amount}
+                  onChange={e => updateRow(i, 'amount', e.target.value)}
+                />
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* فرم بدون فاکتور */}
+        <section className="no-invoice-editor">
+          <h3>فرم صورت هزینه بدون فاکتور</h3>
+          <p className="hint">
+            هر هزینه‌ای که در فرم اصلی شرح و مبلغ داشته باشد، به صورت خودکار وارد فرم بدون فاکتور می‌شود.
+            <br />
+            هر فرم حداکثر ۳ هزینه دارد.
+          </p>
+
+          <div className="ni-form-grid">
+            <label>
+              کد فرم
+              <input
+                value={noInvoice.formCode}
+                onChange={e => setNoInvoice({ ...noInvoice, formCode: e.target.value })}
+              />
+            </label>
+            <label>
+              کد سند مرجع
+              <input
+                value={noInvoice.referenceCode}
+                onChange={e => setNoInvoice({ ...noInvoice, referenceCode: e.target.value })}
+              />
+            </label>
+            <label>
+              تاریخ
+              <input
+                value={noInvoice.date}
+                onChange={e => setNoInvoice({ ...noInvoice, date: e.target.value })}
+              />
+            </label>
+            <label>
+              نام و نام خانوادگی درخواست کننده
+              <input
+                value={noInvoice.requester}
+                onChange={e => setNoInvoice({ ...noInvoice, requester: e.target.value })}
+              />
+            </label>
+            <label>
+              سمت
+              <input
+                value={noInvoice.position}
+                onChange={e => setNoInvoice({ ...noInvoice, position: e.target.value })}
+              />
+            </label>
+            <label>
+              واحد سازمانی
+              <input
+                value={noInvoice.organization}
+                onChange={e => setNoInvoice({ ...noInvoice, organization: e.target.value })}
+              />
+            </label>
+            <label className="wide">
+              دلیل استفاده از کالا / خدمات
+              <input
+                value={noInvoice.reason}
+                onChange={e => setNoInvoice({ ...noInvoice, reason: e.target.value })}
+              />
+            </label>
+            <label className="wide">
+              اظهار نظر تایید کننده
+              <input
+                value={noInvoice.approverComment}
+                onChange={e => setNoInvoice({ ...noInvoice, approverComment: e.target.value })}
+              />
+            </label>
+            <div className="approval-radios">
+              <label>
+                <input
+                  type="radio"
+                  name="approved"
+                  checked={noInvoice.approved === true}
+                  onChange={() => setNoInvoice({ ...noInvoice, approved: true })}
+                />
+                موافقت میشود
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="approved"
+                  checked={noInvoice.approved === false}
+                  onChange={() => setNoInvoice({ ...noInvoice, approved: false })}
+                />
+                موافقت نمیشود
+              </label>
+            </div>
+            <label className="wide">
+              توضیحات
+              <input
+                value={noInvoice.notes}
+                onChange={e => setNoInvoice({ ...noInvoice, notes: e.target.value })}
+              />
+            </label>
+          </div>
+
+          {/* جدول هزینه‌ها */}
+          <div className="ni-items-editor">
+            <table>
+              <thead>
+                <tr>
+                  <th>ردیف</th>
+                  <th>مشخصات کالا / خدمات</th>
+                  <th>آدرس ارائه دهنده کالا / خدمات</th>
+                  <th>تعداد</th>
+                  <th>مبلغ واحد</th>
+                  <th>مبلغ کل (ریال)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {derivedNoInvoiceItems.length === 0 ? (
+                  <tr>
+                    <td colSpan="6">هنوز هزینه‌ای برای فرم بدون فاکتور وجود ندارد.</td>
+                  </tr>
+                ) : (
+                  derivedNoInvoiceItems.map((item, i) => (
+                    <tr key={i}>
+                      <td>{i + 1}</td>
+                      <td>{item.product}</td>
+                      <td>{item.provider}</td>
+                      <td>{item.qty}</td>
+                      <td>{formatMoney(item.unitAmount)}</td>
+                      <td>{formatMoney(item.total)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="ni-status">
+            <b>تعداد فرم‌های بدون فاکتور:</b> {noInvoicePages.length}
+            <span>
+              <b>تعداد کل هزینه‌ها:</b> {derivedNoInvoiceItems.length}
+            </span>
+          </div>
+
+          <div className="ni-actions">
+            <button
+              className="primary"
+              onClick={() => setNoInvoice(prev => ({ ...prev, date: header.date }))}
+            >
+              ↔ بروزرسانی فرم بدون فاکتور
+            </button>
+            <button onClick={printNoInvoiceForm} disabled={!hasNoInvoice}>
+              🖨 چاپ فرم بدون فاکتور
+            </button>
+            <button
+              className="primary"
+              onClick={exportNoInvoicePdf}
+              disabled={noInvoiceBusy || !hasNoInvoice}
+            >
+              {noInvoiceBusy ? 'در حال ساخت PDF…' : '📄 PDF فرم بدون فاکتور'}
+            </button>
+          </div>
+        </section>
+
+        {/* امضاها */}
+        <section>
+          <h3>امضاها</h3>
+          <div className="three-col">
+            <label>
+              امضاء درخواست کننده
+              <input
+                value={signatures.requester}
+                onChange={e => setSignatures({ ...signatures, requester: e.target.value })}
+              />
+            </label>
+            <label>
+              امضاء تایید کننده
+              <input
+                value={signatures.confirmer}
+                onChange={e => setSignatures({ ...signatures, confirmer: e.target.value })}
+              />
+            </label>
+            <label>
+              امضاء تصویب کننده
+              <input
+                value={signatures.issuer}
+                onChange={e => setSignatures({ ...signatures, issuer: e.target.value })}
+              />
+            </label>
+          </div>
+        </section>
+
+        {/* دکمه‌های اصلی */}
+        <div className="actions">
+          <button className="primary" onClick={printAllForms}>
+            🖨 چاپ کلی همه فرم‌ها
+          </button>
+          <button onClick={printMainForm}>
+            🖨 چاپ فقط فرم اصلی
+          </button>
+          <button className="primary" onClick={exportPdf} disabled={busy}>
+            {busy ? 'در حال ساخت PDF…' : '📄 خروجی PDF فرم اصلی'}
+          </button>
+          <button className="ghost" onClick={reset}>
+            پاک کردن اطلاعات
+          </button>
+        </div>
+      </aside>
+
+      {/* پیش‌نمایش */}
+      <main className="preview-wrap">
+        <div className="preview-label no-print">پیش‌نمایش فرم اصلی</div>
+
+        {/* فرم اصلی */}
+        <div id="print-area" className="paper main-print-page">
+          {/* سربرگ - 3 سطری */}
+          <table className="header-table">
+            <tbody>
+              <tr>
+                <td className="header-logo-col" rowSpan="3">
+                  <img src={LOGO_SRC} alt="فاران" className="logo-header" />
+                </td>
+                <td className="header-title-col" rowSpan="3">{header.title}</td>
+                <td className="header-codes-col">کد سند : {header.docCode}</td>
+              </tr>
+              <tr>
+                <td className="header-codes-col">کد سند مرجع : {header.serviceCode}</td>
+              </tr>
+              <tr>
+                <td className="header-codes-col">تاریخ : {header.date}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* جدول اصلی */}
+          <table className="expense-table">
+            <thead>
+              <tr>
+                <th className="th-row">ردیف</th>
+                <th className="th-date">تاریخ</th>
+                <th className="th-place">محل مراجعه<br/>(بانک / شرکت)</th>
+                <th className="th-service">نوع خدمات</th>
+                <th className="th-invoice">شماره قرارداد / فاکتور</th>
+                <th className="th-desc">شرح هزینه</th>
+                <th className="th-amount">مبلغ هزینه (ریال)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i}>
+                  <td className="td-row">{i + 1}</td>
+                  <td className="td-date">{r.date}</td>
+                  <td className="td-place">{r.place}</td>
+                  <td className="td-service">{r.service}</td>
+                  <td className="td-invoice">{r.invoice}</td>
+                  <td className="td-desc">{r.description}</td>
+                  <td className="td-amount">{formatMoney(r.amount)}</td>
+                </tr>
+              ))}
+              
+              {/* ردیف جمع کل + تاریخ واریزی (مطابق فرم کاغذی) */}
+              <tr className="tr-total">
+                <td colSpan="2" className="td-review" style={{ textAlign: 'right' }}>
+                  تاریخ واریزی: {header.reviewDate || '………………'}
+                </td>
+                <td colSpan="4" className="td-desc" style={{ textAlign: 'right', fontWeight: 700 }}>
+                  جمع کل هزینه :
+                </td>
+                <td className="td-amount" style={{ fontWeight: 700 }}>
+                  {formatMoney(total)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* امضاها - جدول */}
+          <table className="signatures-table">
+            <tbody>
+              <tr>
+                <td className="sig-cell sig-left">
+                  نام و امضاء تنظیم کننده :
+                  <div className="sig-space">{signatures.requester}</div>
+                </td>
+                <td className="sig-cell sig-center">
+                  نام و امضاء تایید کننده :
+                  <div className="sig-space">{signatures.confirmer}</div>
+                </td>
+                <td className="sig-cell sig-right">
+                  نام و امضاء تصویب کننده :
+                  <div className="sig-space">{signatures.issuer}</div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* فرم بدون فاکتور */}
+        {hasNoInvoice && (
+          <div id="no-invoice-print-area" className="no-invoice-preview-wrap">
+            <div className="preview-label no-print">پیش‌نمایش فرم‌های هزینه بدون فاکتور</div>
+            <div className="no-invoice-pages">
+              {noInvoicePages.map((pageItems, pageIndex) => (
+                <NoInvoiceCopy
+                  key={pageIndex}
+                  items={pageItems}
+                  pageIndex={pageIndex}
+                  totalPages={noInvoicePages.length}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+      </main>
     </div>
-    <table className="ni-table"><colgroup><col style={{width:'8%'}}/><col style={{width:'35%'}}/><col style={{width:'25%'}}/><col style={{width:'10%'}}/><col style={{width:'22%'}}/></colgroup><thead><tr><th>ردیف</th><th>شرح هزینه</th><th>محل / ارائه‌دهنده</th><th>تعداد</th><th>مبلغ (ریال)</th></tr></thead><tbody>{[0,1,2].map(i => { const item=items[i]; return <tr key={i}><td>{i+1}</td><td>{item?.product || ''}</td><td>{item?.provider || ''}</td><td>{item?.qty || ''}</td><td>{item ? formatMoney(item.total) : ''}</td></tr>; })}<tr className="ni-total"><td colSpan="4">جمع کل:</td><td>{formatMoney(total)}</td></tr></tbody></table>
-    <div className="ni-signatures"><div>تنظیم‌کننده: <b>{noInvoice.requester}</b><span>امضاء:</span></div><div>تأییدکننده:<span>امضاء:</span></div><div>تصویب‌کننده:<span>امضاء:</span></div></div>
-  </div></section>;
+  );
 }
 
 createRoot(document.getElementById('root')).render(<App />);
