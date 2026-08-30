@@ -1,1574 +1,564 @@
-import React, { useMemo, useState, useCallback } from 'react';
-import { createRoot } from 'react-dom/client';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
-import './styles.css';
+@import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700&display=swap');
 
-const LOGO_SRC = `${import.meta.env.BASE_URL}logo.png`;
-
-const emptyRow = (date = '') => ({
-  date,
-  place: '',
-  service: '',
-  invoice: '',
-  description: '',
-  amount: ''
-});
-
-const initialRows = Array.from({ length: 8 }, () => emptyRow(''));
-
-// فقط گزینه‌های واقعی «نوع خدمات»
-const serviceOptions = [
-  'PM',
-  'نصب اولیه',
-  'بازدید فنی',
-  'بازدید فروش',
-  'اعلام خرابی'
-];
-
-// مواردی که فقط از داخل «شرح هزینه» برای فرم بدون فاکتور تشخیص داده می‌شوند
-const noInvoiceKeywords = [
-  'تاکسی',
-  'ناهار',
-  'صبحانه',
-  'شام',
-  'پذیرایی',
-  'پارکینگ',
-  'بنزین',
-  'سوخت',
-  'بلیط',
-  'اقامت',
-  'هتل',
-  'مترو',
-  'اتوبوس'
-];
-
-/* =========================================================
-   توابع تقویم شمسی
-========================================================= */
-
-function div(a, b) {
-  return Math.floor(a / b);
+:root {
+  font-family: 'Vazirmatn', Tahoma, Arial, sans-serif;
+  color: #111;
+  background: #e9edf2;
+  font-synthesis: none;
 }
 
-function mod(a, b) {
-  return a - Math.floor(a / b) * b;
+* { box-sizing: border-box; }
+html, body, #root { min-height: 100%; margin: 0; }
+body { background: #e9edf2; }
+button, input, select { font: inherit; }
+
+.app-shell { min-height: 100vh; display: flex; flex-direction: row-reverse; gap: 22px; padding: 22px; align-items: flex-start; }
+.control-panel { width: 450px; flex: 0 0 450px; background: #fff; border: 1px solid #d6dbe1; border-radius: 16px; padding: 18px; box-shadow: 0 10px 30px rgba(0,0,0,.07); position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; }
+.panel-title { font-size: 22px; font-weight: 800; margin-bottom: 3px; }
+.panel-subtitle { color: #69717c; font-size: 12px; margin-bottom: 18px; }
+
+/* Error Message */
+.error-message { 
+  background: #fee; 
+  border: 1px solid #fcc; 
+  border-radius: 8px; 
+  padding: 12px; 
+  margin-bottom: 15px; 
+  font-size: 12px; 
+  color: #c00; 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+}
+.error-message button { 
+  background: transparent; 
+  border: 0; 
+  cursor: pointer; 
+  font-size: 16px; 
+  color: #c00; 
+  padding: 0; 
+  width: 24px; 
+  height: 24px; 
 }
 
-// تبدیل تاریخ میلادی به جلالی
-function gregorianToJalali(gy, gm, gd) {
-  const gdm = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+.control-group { margin-bottom: 10px; }
+.control-group label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px; color: #3b424a; }
+.control-group input, .control-group select { width: 100%; height: 38px; border: 1px solid #cfd5dc; border-radius: 8px; padding: 0 9px; background: #fff; outline: none; font-size: 12px; }
+.control-group input:focus, .control-group select:focus { border-color: #6b7280; box-shadow: 0 0 0 2px rgba(107,114,128,.12); }
+.control-group input::placeholder { color: #999; }
 
-  let jy;
+.control-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.control-grid.three { grid-template-columns: repeat(3, 1fr); }
 
-  if (gy > 1600) {
-    jy = 979;
-    gy -= 1600;
-  } else {
-    jy = 0;
-    gy -= 621;
+.section-label { font-size: 13px; font-weight: 800; margin: 17px 0 9px; padding-top: 10px; border-top: 1px solid #e6e9ed; text-transform: uppercase; color: #3b424a; letter-spacing: 0.5px; }
+
+.editor-table { display: grid; gap: 5px; }
+.editor-row { display: grid; grid-template-columns: 24px 1.05fr 105px 1.7fr 110px; gap: 5px; align-items: center; }
+.editor-row > span { text-align: center; font-size: 11px; color: #626a74; font-weight: 600; }
+.editor-row input, .editor-row select { width: 100%; height: 32px; border: 1px solid #d5dae0; border-radius: 6px; padding: 0 6px; min-width: 0; background: #fff; font-size: 11px; }
+.editor-row input:focus, .editor-row select:focus { border-color: #6b7280; box-shadow: 0 0 0 2px rgba(107,114,128,.12); }
+.editor-row .description-input { min-width: 0; }
+
+.action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 18px; }
+.action-grid button { 
+  min-height: 42px; 
+  border: 0; 
+  border-radius: 9px; 
+  cursor: pointer; 
+  background: #20252b; 
+  color: #fff; 
+  font-weight: 700; 
+  font-size: 12px; 
+  transition: all 0.2s ease;
+}
+.action-grid button:hover:not(:disabled) { 
+  background: #2a3035; 
+  box-shadow: 0 4px 12px rgba(32, 37, 43, 0.3); 
+}
+.action-grid button:disabled { 
+  opacity: 0.5; 
+  cursor: not-allowed; 
+}
+.action-grid button.secondary { 
+  background: #eef0f2; 
+  color: #333; 
+}
+.action-grid button.secondary:hover:not(:disabled) { 
+  background: #dfe2e7; 
+}
+
+.preview-area { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 24px; }
+.preview-note { font-size: 12px; color: #66707a; align-self: stretch; text-align: center; margin-top: 4px; }
+
+.paper { 
+  background: #fff; 
+  box-shadow: 0 10px 35px rgba(0,0,0,.16); 
+  position: relative; 
+  overflow: hidden; 
+  border: 1px solid #e0e0e0;
+}
+.main-paper { width: min(100%, 1120px); aspect-ratio: 297 / 210; }
+.form-frame { width: 86%; height: 78%; position: absolute; left: 7%; top: 10%; display: flex; flex-direction: column; }
+
+/* Header - Main Form */
+.main-header { 
+  height: 18%; 
+  display: grid; 
+  grid-template-columns: 35% 47% 18%; 
+  direction: ltr; 
+  border: 1.2px solid #111; 
+}
+.header-codes, .header-title, .header-logo { direction: rtl; }
+
+.header-codes { 
+  display: flex; 
+  flex-direction: column; 
+  justify-content: stretch; 
+  border-right: 1.2px solid #111; 
+  font-size: clamp(7px, 1.02vw, 12px); 
+  text-align: right; 
+  background: #fafafa;
+}
+.header-codes div { 
+  flex: 1; 
+  display: flex; 
+  align-items: center; 
+  justify-content: flex-end; 
+  gap: 5px; 
+  padding: 0 7px; 
+  border-bottom: 1px solid #111; 
+  white-space: nowrap; 
+}
+.header-codes div:last-child { border-bottom: 0; }
+.header-codes b { font-weight: 600; direction: ltr; margin-left: 3px; }
+
+.header-title { 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  text-align: center; 
+  font-size: clamp(9px, 1.28vw, 15px); 
+  font-weight: 700; 
+  border-right: 1.2px solid #111; 
+  white-space: normal;
+  line-height: 1.3;
+  padding: 5px;
+}
+
+.header-logo { 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  padding: 5px; 
+  background: #fafafa;
+}
+.header-logo img { 
+  width: 78%; 
+  max-height: 80%; 
+  object-fit: contain; 
+}
+
+/* Expense Table */
+.expense-table { 
+  width: 100%; 
+  height: 66%; 
+  border-collapse: collapse; 
+  table-layout: fixed; 
+  direction: rtl; 
+  font-size: clamp(6px, 0.85vw, 10px); 
+}
+
+.expense-table th, .expense-table td { 
+  border: 1px solid #111; 
+  padding: 1px 3px; 
+  text-align: center; 
+  vertical-align: middle; 
+  overflow: hidden; 
+}
+
+.expense-table thead th { 
+  height: 11%; 
+  font-weight: 700; 
+  line-height: 1.25; 
+  white-space: normal; 
+  background: #f5f5f5;
+}
+
+.expense-table tbody tr { height: 9.4%; }
+
+.expense-table td { 
+  font-weight: 400; 
+  white-space: nowrap; 
+}
+
+.expense-table .description-cell { 
+  white-space: normal; 
+  line-height: 1.2; 
+  text-align: right;
+  padding: 2px 4px;
+}
+
+.expense-table .amount-cell { 
+  direction: rtl; 
+  font-weight: 500;
+}
+
+.col-row { width: 5%; }
+.col-date { width: 12%; }
+.col-place { width: 20%; }
+.col-service { width: 12%; }
+.col-invoice { width: 13%; }
+.col-description { width: 25%; }
+.col-amount { width: 13%; }
+
+.total-row td { 
+  height: 8%; 
+  font-weight: 600; 
+  background: #f9f9f9;
+}
+
+.total-row .total-label { 
+  text-align: right; 
+  padding-right: 8px; 
+}
+
+.expense-table tfoot td { 
+  height: 7%; 
+  text-align: right; 
+  padding-right: 8px; 
+  font-weight: 600; 
+  background: #f9f9f9;
+}
+
+/* Signature Row */
+.signature-row { 
+  height: 16%; 
+  display: grid; 
+  grid-template-columns: 1fr 1fr 1fr; 
+  direction: ltr; 
+}
+
+.signature-row > div { 
+  direction: rtl; 
+  border: 1px solid #111; 
+  border-top: 0; 
+  display: flex; 
+  flex-direction: column;
+  align-items: flex-start; 
+  justify-content: flex-start; 
+  gap: 4px; 
+  padding: 7px 8px; 
+  font-size: clamp(6px, 0.8vw, 9px); 
+}
+
+.signature-row > div + div { border-right: 0; }
+
+.signature-row span { 
+  white-space: nowrap; 
+  font-weight: 600;
+  color: #333;
+}
+
+.signature-row b { 
+  font-weight: 500; 
+  color: #222;
+  display: block;
+  margin-top: 2px;
+}
+
+/* No Invoice Form */
+.no-invoice-paper { width: min(100%, 820px); aspect-ratio: 210 / 297; }
+
+.ni-frame { 
+  position: absolute; 
+  width: 86%; 
+  height: 88%; 
+  left: 7%; 
+  top: 6%; 
+  display: flex; 
+  flex-direction: column; 
+}
+
+/* No Invoice Header */
+.ni-top { 
+  height: 13%; 
+  display: grid; 
+  grid-template-columns: 35% 47% 18%; 
+  direction: ltr; 
+  border: 1.2px solid #111; 
+}
+
+.ni-code-box, .ni-title, .ni-logo { direction: rtl; }
+
+.ni-code-box { 
+  display: flex; 
+  flex-direction: column; 
+  border-right: 1.2px solid #111; 
+  font-size: 9px; 
+  background: #fafafa;
+}
+
+.ni-code-box div { 
+  flex: 1; 
+  display: flex; 
+  align-items: center; 
+  justify-content: flex-end; 
+  padding: 0 6px; 
+  border-bottom: 1px solid #111; 
+}
+
+.ni-code-box div:last-child { border-bottom: 0; }
+
+.ni-code-box b { font-weight: 600; }
+
+.ni-title { 
+  display: flex; 
+  justify-content: center; 
+  align-items: center; 
+  text-align: center; 
+  font-size: 13px; 
+  font-weight: 700; 
+  border-right: 1.2px solid #111; 
+  white-space: normal;
+  line-height: 1.3;
+  padding: 4px;
+}
+
+.ni-logo { 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  padding: 6px; 
+  background: #fafafa;
+}
+
+.ni-logo img { 
+  width: 75%; 
+  max-height: 80%; 
+  object-fit: contain; 
+}
+
+/* No Invoice Fields */
+.ni-fields { 
+  display: grid; 
+  grid-template-columns: 1fr 1fr; 
+  border-left: 1px solid #111; 
+  border-right: 1px solid #111; 
+  border-bottom: 1px solid #111; 
+  font-size: 9px; 
+  background: #fafafa;
+}
+
+.ni-fields > div { 
+  min-height: 28px; 
+  padding: 5px 7px; 
+  border-left: 1px solid #111; 
+  display: flex; 
+  gap: 4px; 
+  align-items: center; 
+  flex-wrap: wrap;
+}
+
+.ni-fields > div:nth-child(2n) { border-left: 0; }
+
+.ni-fields .ni-reason { 
+  grid-column: 1 / -1; 
+  border-top: 1px solid #111; 
+  border-left: 0; 
+}
+
+.ni-fields span { 
+  font-weight: 600; 
+  color: #333;
+  flex: 0 0 auto;
+}
+
+.ni-fields b { 
+  font-weight: 500; 
+  color: #222;
+}
+
+/* No Invoice Table */
+.ni-table { 
+  width: 100%; 
+  border-collapse: collapse; 
+  table-layout: fixed; 
+  direction: rtl; 
+  font-size: 9px; 
+  margin-top: 1px;
+}
+
+.ni-table th, .ni-table td { 
+  border: 1px solid #111; 
+  padding: 4px; 
+  text-align: center; 
+  vertical-align: middle; 
+  height: 42px; 
+}
+
+.ni-table th { 
+  height: 32px; 
+  font-weight: 700; 
+  background: #f5f5f5;
+}
+
+.ni-table td { white-space: nowrap; }
+
+.ni-table .ni-total td { 
+  height: 34px; 
+  font-weight: 700; 
+  background: #f9f9f9;
+}
+
+/* No Invoice Signatures */
+.ni-signatures { 
+  display: grid; 
+  grid-template-columns: 1fr 1fr 1fr; 
+  direction: ltr; 
+  margin-top: 1px;
+}
+
+.ni-signatures > div { 
+  direction: rtl; 
+  border: 1px solid #111; 
+  border-top: 0; 
+  min-height: 65px; 
+  padding: 8px; 
+  font-size: 9px; 
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.ni-signatures > div + div { border-right: 0; }
+
+.ni-signatures span { 
+  white-space: nowrap; 
+  font-weight: 600;
+  color: #333;
+  margin-top: 4px;
+}
+
+.ni-signatures b { font-weight: 500; }
+
+/* Responsive Design */
+@media (max-width: 1100px) {
+  .app-shell { flex-direction: column; align-items: stretch; }
+  .control-panel { 
+    width: 100%; 
+    flex-basis: auto; 
+    position: relative; 
+    top: auto; 
+    max-height: none;
+    margin-bottom: 20px;
   }
+  .preview-area { width: 100%; }
+  .editor-row { grid-template-columns: 24px 1fr 90px 1.5fr 100px; }
+}
 
-  const gy2 = gm > 2 ? gy + 1 : gy;
+@media (max-width: 768px) {
+  .app-shell { padding: 12px; gap: 12px; }
+  .control-panel { padding: 12px; }
+  .editor-row { grid-template-columns: 20px 0.9fr 80px 1.3fr 90px; font-size: 10px; }
+  .action-grid { grid-template-columns: 1fr; }
+  .control-grid.three { grid-template-columns: 1fr 1fr; }
+}
 
-  let days =
-    365 * gy +
-    div(gy2 + 3, 4) -
-    div(gy2 + 99, 100) +
-    div(gy2 + 399, 400) -
-    80 +
-    gd +
-    gdm[gm - 1];
-
-  jy += 33 * div(days, 12053);
-  days = mod(days, 12053);
-
-  jy += 4 * div(days, 1461);
-  days = mod(days, 1461);
-
-  if (days > 365) {
-    jy += div(days - 1, 365);
-    days = mod(days - 1, 365);
+/* Print Styles */
+@media print {
+  @page { 
+    size: A4 landscape; 
+    margin: 0; 
   }
-
-  const jm =
-    days < 186
-      ? 1 + div(days, 31)
-      : 7 + div(days - 186, 30);
-
-  const jd =
-    1 +
-    (days < 186
-      ? mod(days, 31)
-      : mod(days - 186, 30));
-
-  return [jy, jm, jd];
-}
-
-// تبدیل تاریخ جلالی به میلادی
-function jalaliToGregorian(jy, jm, jd) {
-  if (jy < 1 || jm < 1 || jm > 12 || jd < 1) {
-    return [1400, 1, 1]; // Default date
+  
+  html, body { 
+    width: 297mm; 
+    min-height: 210mm; 
+    background: #fff !important; 
   }
-
-  let gy;
-
-  if (jy > 979) {
-    gy = 1600;
-    jy -= 979;
-  } else {
-    gy = 621;
+  
+  body { margin: 0 !important; }
+  
+  .no-print, .control-panel, .preview-note { display: none !important; }
+  
+  .app-shell { 
+    display: block !important; 
+    padding: 0 !important; 
+    margin: 0 !important; 
+    min-height: auto;
   }
-
-  const days =
-    365 * jy +
-    div(jy, 33) * 8 +
-    div(mod(jy, 33) + 3, 4) +
-    78 +
-    jd +
-    (jm < 7
-      ? (jm - 1) * 31
-      : (jm - 7) * 30 + 186);
-
-  gy += 400 * div(days, 146097);
-
-  let d = mod(days, 146097);
-
-  if (d > 36524) {
-    gy += 100 * div(--d, 36524);
-    d = mod(d, 36524);
-
-    if (d >= 365) {
-      d++;
-    }
+  
+  .preview-area { 
+    display: block !important; 
+    width: 100% !important; 
+    gap: 0 !important;
   }
-
-  gy += 4 * div(d, 1461);
-  d = mod(d, 1461);
-
-  if (d > 365) {
-    gy += div(d - 1, 365);
-    d = mod(d - 1, 365);
+  
+  .paper { 
+    box-shadow: none !important; 
+    margin: 0 !important; 
+    border: none !important;
   }
-
-  const gd = d + 1;
-
-  const leap =
-    (gy % 4 === 0 && gy % 100 !== 0) ||
-    gy % 400 === 0;
-
-  const monthDays = [
-    31,
-    leap ? 29 : 28,
-    31,
-    30,
-    31,
-    30,
-    31,
-    31,
-    30,
-    31,
-    30,
-    31
-  ];
-
-  let gm = 1;
-  let day = gd;
-
-  for (let i = 0; i < monthDays.length; i++) {
-    if (day <= monthDays[i]) {
-      gm = i + 1;
-      break;
-    }
-
-    day -= monthDays[i];
+  
+  .main-paper { 
+    width: 297mm !important; 
+    height: 210mm !important; 
+    aspect-ratio: auto !important; 
+    page-break-after: always; 
   }
-
-  return [gy, gm, day];
-}
-
-function getJalaliToday() {
-  const now = new Date();
-
-  const [jy, jm, jd] = gregorianToJalali(
-    now.getFullYear(),
-    now.getMonth() + 1,
-    now.getDate()
-  );
-
-  return {
-    year: jy,
-    month: jm,
-    day: jd
-  };
-}
-
-function formatJalaliDate(year, month, day) {
-  return `${year}/${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}`;
-}
-
-const jalaliMonths = [
-  'فروردین',
-  'اردیبهشت',
-  'خرداد',
-  'تیر',
-  'مرداد',
-  'شهریور',
-  'مهر',
-  'آبان',
-  'آذر',
-  'دی',
-  'بهمن',
-  'اسفند'
-];
-
-const weekDays = [
-  'شنبه',
-  'یکشنبه',
-  'دوشنبه',
-  'سه‌شنبه',
-  'چهارشنبه',
-  'پنجشنبه',
-  'جمعه'
-];
-
-function getMonthDays(year, month) {
-  if (month <= 6) return 31;
-  if (month <= 11) return 30;
-
-  const [gy] = jalaliToGregorian(year, 12, 1);
-  const [gyNext] = jalaliToGregorian(year + 1, 1, 1);
-
-  const start = new Date(gy, 2, 19);
-  const next = new Date(gyNext, 2, 19);
-
-  const diff =
-    Math.round(
-      (next.getTime() - start.getTime()) /
-        (1000 * 60 * 60 * 24)
-    );
-
-  return diff > 365 ? 30 : 29;
-}
-
-function getFirstWeekday(year, month) {
-  const [gy, gm, gd] = jalaliToGregorian(
-    year,
-    month,
-    1
-  );
-
-  const date = new Date(gy, gm - 1, gd);
-
-  return (date.getDay() + 1) % 7;
-}
-
-/* =========================================================
-   تقویم شمسی
-========================================================= */
-
-function PersianDatePicker({ value, onChange }) {
-  const today = getJalaliToday();
-  const [open, setOpen] = useState(false);
-
-  const parseValue = value => {
-    const match = String(value || '').match(
-      /^(\d{4})\s*\/\s*(\d{1,2})\s*\/\s*(\d{1,2})$/
-    );
-
-    if (!match) {
-      return {
-        year: today.year,
-        month: today.month,
-        day: today.day
-      };
-    }
-
-    return {
-      year: Number(match[1]),
-      month: Number(match[2]),
-      day: Number(match[3])
-    };
-  };
-
-  const selected = parseValue(value);
-
-  const [viewYear, setViewYear] = useState(selected.year);
-  const [viewMonth, setViewMonth] = useState(selected.month);
-
-  const daysInMonth = getMonthDays(viewYear, viewMonth);
-  const firstDay = getFirstWeekday(viewYear, viewMonth);
-
-  const days = [];
-
-  for (let i = 0; i < firstDay; i++) {
-    days.push(null);
+  
+  .form-frame { 
+    width: 86% !important; 
+    height: 78% !important; 
+    left: 7% !important; 
+    top: 10% !important; 
   }
-
-  for (let day = 1; day <= daysInMonth; day++) {
-    days.push(day);
+  
+  .no-invoice-paper { 
+    width: 210mm !important; 
+    height: 297mm !important; 
+    aspect-ratio: auto !important; 
+    page-break-after: always; 
   }
-
-  while (days.length % 7 !== 0) {
-    days.push(null);
+  
+  .ni-frame { 
+    width: 86% !important; 
+    height: 88% !important; 
+    left: 7% !important; 
+    top: 6% !important; 
   }
-
-  const previousMonth = useCallback(() => {
-    if (viewMonth === 1) {
-      setViewMonth(12);
-      setViewYear(prev => prev - 1);
-    } else {
-      setViewMonth(prev => prev - 1);
-    }
-  }, [viewMonth]);
-
-  const nextMonth = useCallback(() => {
-    if (viewMonth === 12) {
-      setViewMonth(1);
-      setViewYear(prev => prev + 1);
-    } else {
-      setViewMonth(prev => prev + 1);
-    }
-  }, [viewMonth]);
-
-  const selectDay = useCallback(day => {
-    if (!day) return;
-
-    const formatted = formatJalaliDate(viewYear, viewMonth, day);
-    onChange(formatted);
-    setOpen(false);
-  }, [viewYear, viewMonth, onChange]);
-
-  const goToday = useCallback(() => {
-    setViewYear(today.year);
-    setViewMonth(today.month);
-    onChange(
-      formatJalaliDate(today.year, today.month, today.day)
-    );
-    setOpen(false);
-  }, [today, onChange]);
-
-  return (
-    <div
-      className="jalali-picker"
-      style={{
-        position: 'relative',
-        width: '100%'
-      }}
-    >
-      <div
-        style={{
-          position: 'relative',
-          width: '100%'
-        }}
-      >
-        <input
-          value={value}
-          readOnly
-          onClick={() => {
-            setViewYear(selected.year);
-            setViewMonth(selected.month);
-            setOpen(prev => !prev);
-          }}
-          placeholder="انتخاب تاریخ"
-          style={{
-            cursor: 'pointer',
-            paddingLeft: '38px'
-          }}
-        />
-
-        <button
-          type="button"
-          onClick={() => {
-            setViewYear(selected.year);
-            setViewMonth(selected.month);
-            setOpen(prev => !prev);
-          }}
-          aria-label="باز کردن تقویم"
-          style={{
-            position: 'absolute',
-            left: '6px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            width: '28px',
-            height: '28px',
-            border: '0',
-            background: 'transparent',
-            cursor: 'pointer',
-            fontSize: '17px',
-            padding: 0
-          }}
-        >
-          📅
-        </button>
-      </div>
-
-      {open && (
-        <div
-          className="jalali-calendar"
-          style={{
-            position: 'absolute',
-            top: 'calc(100% + 7px)',
-            right: 0,
-            width: '300px',
-            background: '#fff',
-            border: '1px solid #d5dae0',
-            borderRadius: '12px',
-            boxShadow: '0 12px 35px rgba(0,0,0,.18)',
-            padding: '12px',
-            zIndex: 9999,
-            direction: 'rtl'
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '10px'
-            }}
-          >
-            <button
-              type="button"
-              onClick={nextMonth}
-              style={{
-                border: '0',
-                background: '#f1f3f5',
-                borderRadius: '7px',
-                width: '32px',
-                height: '32px',
-                cursor: 'pointer',
-                fontSize: '18px'
-              }}
-            >
-              ‹
-            </button>
-
-            <strong style={{ fontSize: '14px' }}>
-              {jalaliMonths[viewMonth - 1]} {viewYear}
-            </strong>
-
-            <button
-              type="button"
-              onClick={previousMonth}
-              style={{
-                border: '0',
-                background: '#f1f3f5',
-                borderRadius: '7px',
-                width: '32px',
-                height: '32px',
-                cursor: 'pointer',
-                fontSize: '18px'
-              }}
-            >
-              ›
-            </button>
-          </div>
-
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(7, 1fr)',
-              gap: '3px',
-              marginBottom: '5px'
-            }}
-          >
-            {weekDays.map(day => (
-              <div
-                key={day}
-                style={{
-                  textAlign: 'center',
-                  fontSize: '10px',
-                  fontWeight: 700,
-                  color: '#69717c',
-                  padding: '4px 0'
-                }}
-              >
-                {day.slice(0, 1)}
-              </div>
-            ))}
-          </div>
-
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(7, 1fr)',
-              gap: '3px'
-            }}
-          >
-            {days.map((day, index) => {
-              const isSelected =
-                day === selected.day &&
-                viewMonth === selected.month &&
-                viewYear === selected.year;
-
-              const isToday =
-                day === today.day &&
-                viewMonth === today.month &&
-                viewYear === today.year;
-
-              return (
-                <button
-                  type="button"
-                  key={`${viewYear}-${viewMonth}-${index}`}
-                  disabled={!day}
-                  onClick={() => selectDay(day)}
-                  style={{
-                    height: '32px',
-                    border: isSelected
-                      ? '1px solid #20252b'
-                      : isToday
-                      ? '1px solid #8b939c'
-                      : '1px solid transparent',
-                    borderRadius: '7px',
-                    background: isSelected
-                      ? '#20252b'
-                      : isToday
-                      ? '#eef0f2'
-                      : '#fff',
-                    color: isSelected ? '#fff' : '#222',
-                    cursor: day ? 'pointer' : 'default',
-                    fontSize: '11px',
-                    fontWeight: isSelected || isToday ? 700 : 400
-                  }}
-                >
-                  {day || ''}
-                </button>
-              );
-            })}
-          </div>
-
-          <button
-            type="button"
-            onClick={goToday}
-            style={{
-              width: '100%',
-              height: '32px',
-              marginTop: '9px',
-              border: '0',
-              borderRadius: '7px',
-              background: '#eef0f2',
-              cursor: 'pointer',
-              fontSize: '11px',
-              fontWeight: 700
-            }}
-          >
-            امروز
-          </button>
-        </div>
-      )}
-    </div>
-  );
 }
 
-/* =========================================================
-   توابع عمومی
-========================================================= */
-
-function sanitizeInput(value) {
-  return String(value || '').trim();
+@media screen {
+  .no-invoice-paper { margin-bottom: 20px; }
 }
 
-function numberValue(value) {
-  const num = Number(
-    String(value ?? '').replace(/[٬,،\s]/g, '')
-  ) || 0;
-  return isFinite(num) ? num : 0;
+/* Scrollbar Styling */
+.control-panel::-webkit-scrollbar {
+  width: 8px;
 }
 
-function formatMoney(value) {
-  const n = numberValue(value);
-  return n
-    ? new Intl.NumberFormat('fa-IR').format(n)
-    : '';
+.control-panel::-webkit-scrollbar-track {
+  background: #f1f3f5;
+  border-radius: 10px;
 }
 
-function extractNoInvoiceItems(description) {
-  const text = sanitizeInput(description);
-  if (!text) return [];
-
-  return noInvoiceKeywords.filter(keyword =>
-    text.includes(keyword)
-  );
+.control-panel::-webkit-scrollbar-thumb {
+  background: #cfd5dc;
+  border-radius: 10px;
 }
 
-function chunk(array, size) {
-  const out = [];
-  for (let i = 0; i < array.length; i += size) {
-    out.push(array.slice(i, i + size));
-  }
-  return out;
+.control-panel::-webkit-scrollbar-thumb:hover {
+  background: #b8c0ca;
 }
 
-/* =========================================================
-   App
-========================================================= */
-
-function App() {
-  const [header, setHeader] = useState({
-    title: 'فرم صورت ریز هزینه های تنخواه واحد خدمات',
-    docCode: 'FI-B-FO-112/00',
-    refCode: 'FI-B-RE-001/00',
-    date: '1405/  /  '
-  });
-
-  const [rows, setRows] = useState(initialRows);
-
-  const [signatures, setSignatures] = useState({
-    requester: '',
-    confirmer: '',
-    approver: ''
-  });
-
-  const [noInvoice, setNoInvoice] = useState({
-    formCode: 'FI-B-FO-135/00',
-    refCode: 'FI-B-RE-001/00',
-    date: '1405/  /  ',
-    requester: '',
-    position: '',
-    organization: '',
-    reason: '',
-    notes: ''
-  });
-
-  const [busy, setBusy] = useState(false);
-  const [noInvoiceBusy, setNoInvoiceBusy] = useState(false);
-  const [error, setError] = useState(null);
-
-  const total = useMemo(
-    () =>
-      rows.reduce(
-        (sum, row) =>
-          sum + numberValue(row.amount),
-        0
-      ),
-    [rows]
-  );
-
-  const noInvoiceItems = useMemo(() => {
-    const items = [];
-
-    rows.forEach(row => {
-      const description = sanitizeInput(row.description);
-      const amount = numberValue(row.amount);
-
-      if (!description || amount <= 0) return;
-
-      const matchedKeywords = extractNoInvoiceItems(description);
-
-      matchedKeywords.forEach(keyword => {
-        items.push({
-          product: keyword,
-          provider: row.place,
-          date: row.date || header.date,
-          qty: '1',
-          unitAmount: String(amount),
-          total: String(amount)
-        });
-      });
-    });
-
-    return items;
-  }, [rows, header.date]);
-
-  const noInvoiceForms = useMemo(
-    () => chunk(noInvoiceItems, 3),
-    [noInvoiceItems]
-  );
-
-  const updateHeader = useCallback((key, value) => {
-    setHeader(prev => ({
-      ...prev,
-      [key]: sanitizeInput(value)
-    }));
-  }, []);
-
-  const updateDate = useCallback(value => {
-    const sanitized = sanitizeInput(value);
-    setHeader(prev => ({ ...prev, date: sanitized }));
-    setRows(prev =>
-      prev.map(row => ({ ...row, date: sanitized }))
-    );
-    setNoInvoice(prev => ({ ...prev, date: sanitized }));
-  }, []);
-
-  const updateRow = useCallback((index, key, value) => {
-    setRows(prev =>
-      prev.map((row, i) =>
-        i === index
-          ? { ...row, [key]: sanitizeInput(value) }
-          : row
-      )
-    );
-  }, []);
-
-  const updateSignature = useCallback((key, value) => {
-    setSignatures(prev => ({
-      ...prev,
-      [key]: sanitizeInput(value)
-    }));
-  }, []);
-
-  const updateNoInvoice = useCallback((key, value) => {
-    setNoInvoice(prev => ({
-      ...prev,
-      [key]: sanitizeInput(value)
-    }));
-  }, []);
-
-  const reset = useCallback(() => {
-    setRows(
-      Array.from({ length: 8 }, () => emptyRow(header.date))
-    );
-    setSignatures({ requester: '', confirmer: '', approver: '' });
-    setNoInvoice({
-      formCode: 'FI-B-FO-135/00',
-      refCode: header.refCode,
-      date: header.date,
-      requester: '',
-      position: '',
-      organization: '',
-      reason: '',
-      notes: ''
-    });
-    setError(null);
-  }, [header.date, header.refCode]);
-
-  const waitForImages = async node => {
-    const images = [...node.querySelectorAll('img')];
-    await Promise.all(
-      images.map(img =>
-        img.complete
-          ? Promise.resolve()
-          : new Promise(resolve => {
-              img.onload = resolve;
-              img.onerror = resolve;
-            })
-      )
-    );
-  };
-
-  const exportMainPdf = useCallback(async () => {
-    const node = document.getElementById('main-print');
-
-    if (!node) {
-      setError('خطا: عنصر چاپ یافت نشد');
-      return;
-    }
-
-    setBusy(true);
-    setError(null);
-
-    try {
-      await waitForImages(node);
-
-      const canvas = await html2canvas(node, {
-        scale: 3,
-        backgroundColor: '#fff',
-        useCORS: true,
-        logging: false
-      });
-
-      const pdf = new jsPDF({
-        orientation: 'landscape',
-        unit: 'mm',
-        format: 'a4',
-        compress: true
-      });
-
-      pdf.addImage(
-        canvas.toDataURL('image/png'),
-        'PNG',
-        0,
-        0,
-        297,
-        210,
-        undefined,
-        'FAST'
-      );
-
-      pdf.save(`فرم-تنخواه-${header.date || 'بدون-تاریخ'}.pdf`);
-    } catch (err) {
-      setError(`خطا در صادرات PDF: ${err.message}`);
-      console.error('PDF Export Error:', err);
-    } finally {
-      setBusy(false);
-    }
-  }, [header.date]);
-
-  const exportNoInvoicePdf = useCallback(async () => {
-    if (!noInvoiceForms.length) {
-      setError('هیچ فرم بدون فاکتور برای صادرات وجود ندارد');
-      return;
-    }
-
-    setNoInvoiceBusy(true);
-    setError(null);
-
-    try {
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-        compress: true
-      });
-
-      let first = true;
-
-      for (let i = 0; i < noInvoiceForms.length; i += 1) {
-        const node = document.getElementById(`no-invoice-${i}`);
-
-        if (!node) continue;
-
-        await waitForImages(node);
-
-        const canvas = await html2canvas(node, {
-          scale: 3,
-          backgroundColor: '#fff',
-          useCORS: true,
-          logging: false
-        });
-
-        if (!first) {
-          pdf.addPage();
-        }
-
-        first = false;
-
-        pdf.addImage(
-          canvas.toDataURL('image/png'),
-          'PNG',
-          0,
-          0,
-          210,
-          297,
-          undefined,
-          'FAST'
-        );
-      }
-
-      if (!first) {
-        pdf.save(`فرم-بدون-فاکتور-${header.date || 'بدون-تاریخ'}.pdf`);
-      }
-    } catch (err) {
-      setError(`خطا در صادرات PDF: ${err.message}`);
-      console.error('PDF Export Error:', err);
-    } finally {
-      setNoInvoiceBusy(false);
-    }
-  }, [noInvoiceForms, header.date]);
-
-  const printAll = useCallback(() => {
-    window.print();
-  }, []);
-
-  return (
-    <div className="app-shell" dir="rtl">
-      <aside className="control-panel no-print">
-
-        <div className="panel-title">
-          فرم صورت هزینه
-        </div>
-
-        <div className="panel-subtitle">
-          نسخه طراحی‌شده برای چاپ A4
-        </div>
-
-        {error && (
-          <div className="error-message">
-            {error}
-            <button onClick={() => setError(null)}>✕</button>
-          </div>
-        )}
-
-        <div className="control-group">
-          <label>تاریخ فرم</label>
-          <PersianDatePicker
-            value={header.date}
-            onChange={updateDate}
-          />
-        </div>
-
-        <div className="control-grid">
-          <div className="control-group">
-            <label>کد سند</label>
-            <input
-              value={header.docCode}
-              onChange={e =>
-                updateHeader('docCode', e.target.value)
-              }
-            />
-          </div>
-
-          <div className="control-group">
-            <label>کد سند مرجع</label>
-            <input
-              value={header.refCode}
-              onChange={e =>
-                updateHeader('refCode', e.target.value)
-              }
-            />
-          </div>
-        </div>
-
-        <div className="section-label">
-          اطلاعات ۸ ردیف هزینه
-        </div>
-
-        <div className="editor-table">
-          {rows.map((row, index) => (
-            <div className="editor-row" key={index}>
-              <span>{index + 1}</span>
-
-              <input
-                value={row.place}
-                onChange={e =>
-                  updateRow(index, 'place', e.target.value)
-                }
-                placeholder="محل / شرکت"
-              />
-
-              <select
-                value={row.service}
-                onChange={e =>
-                  updateRow(index, 'service', e.target.value)
-                }
-              >
-                <option value="">نوع خدمات</option>
-                {serviceOptions.map(option => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-
-              <input
-                className="description-input"
-                value={row.description}
-                onChange={e =>
-                  updateRow(index, 'description', e.target.value)
-                }
-                placeholder="شرح هزینه"
-              />
-
-              <input
-                value={row.amount}
-                onChange={e =>
-                  updateRow(index, 'amount', e.target.value)
-                }
-                inputMode="numeric"
-                placeholder="مبلغ"
-              />
-            </div>
-          ))}
-        </div>
-
-        <div className="section-label">
-          امضاها
-        </div>
-
-        <div className="control-grid three">
-          <div className="control-group">
-            <label>تنظیم‌کننده</label>
-            <input
-              value={signatures.requester}
-              onChange={e =>
-                updateSignature('requester', e.target.value)
-              }
-            />
-          </div>
-
-          <div className="control-group">
-            <label>تأییدکننده</label>
-            <input
-              value={signatures.confirmer}
-              onChange={e =>
-                updateSignature('confirmer', e.target.value)
-              }
-            />
-          </div>
-
-          <div className="control-group">
-            <label>تصویب‌کننده</label>
-            <input
-              value={signatures.approver}
-              onChange={e =>
-                updateSignature('approver', e.target.value)
-              }
-            />
-          </div>
-        </div>
-
-        <div className="section-label">
-          فرم بدون فاکتور
-        </div>
-
-        <div className="control-grid">
-          <div className="control-group">
-            <label>درخواست‌کننده</label>
-            <input
-              value={noInvoice.requester}
-              onChange={e =>
-                updateNoInvoice('requester', e.target.value)
-              }
-            />
-          </div>
-
-          <div className="control-group">
-            <label>سمت</label>
-            <input
-              value={noInvoice.position}
-              onChange={e =>
-                updateNoInvoice('position', e.target.value)
-              }
-            />
-          </div>
-
-          <div className="control-group">
-            <label>واحد / سازمان</label>
-            <input
-              value={noInvoice.organization}
-              onChange={e =>
-                updateNoInvoice('organization', e.target.value)
-              }
-            />
-          </div>
-
-          <div className="control-group">
-            <label>علت عدم ارائه فاکتور</label>
-            <input
-              value={noInvoice.reason}
-              onChange={e =>
-                updateNoInvoice('reason', e.target.value)
-              }
-            />
-          </div>
-        </div>
-
-        <div className="action-grid">
-          <button
-            onClick={exportMainPdf}
-            disabled={busy}
-          >
-            {busy
-              ? 'در حال ساخت PDF...'
-              : 'PDF فرم اصلی'}
-          </button>
-
-          <button
-            onClick={exportNoInvoicePdf}
-            disabled={
-              noInvoiceBusy ||
-              !noInvoiceForms.length
-            }
-          >
-            {noInvoiceBusy
-              ? 'در حال ساخت...'
-              : `PDF بدون فاکتور (${noInvoiceForms.length})`}
-          </button>
-
-          <button
-            onClick={printAll}
-          >
-            چاپ
-          </button>
-
-          <button
-            className="secondary"
-            onClick={reset}
-          >
-            پاک کردن اطلاعات
-          </button>
-        </div>
-
-      </aside>
-
-      <main className="preview-area">
-
-        <div className="preview-note no-print">
-          پیش‌نمایش واقعی فرم — A4 افقی
-        </div>
-
-        <section
-          className="paper main-paper"
-          id="main-print"
-        >
-
-          <div className="form-frame">
-
-            <header className="main-header">
-
-              <div className="header-codes">
-
-                <div>
-                  کد سند:{' '}
-                  <b>{header.docCode}</b>
-                </div>
-
-                <div>
-                  کد سند مرجع:{' '}
-                  <b>{header.refCode}</b>
-                </div>
-
-                <div>
-                  تاریخ:{' '}
-                  <b>{header.date}</b>
-                </div>
-
-              </div>
-
-              <div className="header-title">
-                {header.title}
-              </div>
-
-              <div className="header-logo">
-                <img
-                  src={LOGO_SRC}
-                  alt="فاران"
-                />
-              </div>
-
-            </header>
-
-            <table className="expense-table">
-
-              <colgroup>
-                <col className="col-row" />
-                <col className="col-date" />
-                <col className="col-place" />
-                <col className="col-service" />
-                <col className="col-invoice" />
-                <col className="col-description" />
-                <col className="col-amount" />
-              </colgroup>
-
-              <thead>
-
-                <tr>
-                  <th>ردیف</th>
-                  <th>تاریخ</th>
-                  <th>محل مراجعه/بانک/شرکت</th>
-                  <th>نوع خدمات</th>
-                  <th>شماره قرارداد-فاکتور</th>
-                  <th>شرح هزینه</th>
-                  <th>مبلغ هزینه (ریال)</th>
-                </tr>
-
-              </thead>
-
-              <tbody>
-
-                {rows.map((row, index) => (
-
-                  <tr key={index}>
-
-                    <td>{index + 1}</td>
-
-                    <td>
-                      {row.date ||
-                        header.date}
-                    </td>
-
-                    <td>{row.place}</td>
-
-                    <td>{row.service}</td>
-
-                    <td>{row.invoice}</td>
-
-                    <td className="description-cell">
-                      {row.description}
-                    </td>
-
-                    <td className="amount-cell">
-                      {formatMoney(
-                        row.amount
-                      )}
-                    </td>
-
-                  </tr>
-
-                ))}
-
-                <tr className="total-row">
-
-                  <td colSpan="5"></td>
-
-                  <td className="total-label">
-                    جمع کل هزینه:
-                  </td>
-
-                  <td className="amount-cell">
-                    {formatMoney(total)}
-                  </td>
-
-                </tr>
-
-              </tbody>
-
-              <tfoot>
-
-                <tr>
-                  <td colSpan="7">
-                    تاریخ واریز:
-                    {' '}
-                    ............................................................
-                  </td>
-                </tr>
-
-              </tfoot>
-
-            </table>
-
-            <div className="signature-row">
-
-              <div>
-                <span>
-                  نام و امضاء
-                  <br />
-                  تنظیم‌کننده:
-                </span>
-
-                <b>
-                  {
-                    signatures.requester
-                  }
-                </b>
-              </div>
-
-              <div>
-                <span>
-                  نام و امضاء
-                  <br />
-                  تأییدکننده:
-                </span>
-
-                <b>
-                  {
-                    signatures.confirmer
-                  }
-                </b>
-              </div>
-
-              <div>
-                <span>
-                  نام و امضاء
-                  <br />
-                  تصویب‌کننده:
-                </span>
-
-                <b>
-                  {
-                    signatures.approver
-                  }
-                </b>
-              </div>
-
-            </div>
-
-          </div>
-
-        </section>
-
-        {noInvoiceForms.map(
-          (
-            items,
-            pageIndex
-          ) => (
-
-            <NoInvoiceForm
-              key={pageIndex}
-              items={items}
-              pageIndex={
-                pageIndex
-              }
-              noInvoice={
-                noInvoice
-              }
-              header={header}
-            />
-
-          )
-        )}
-
-      </main>
-
-    </div>
-  );
+/* Text Selection */
+::selection {
+  background: #20252b;
+  color: #fff;
 }
 
-/* =========================================================
-   فرم بدون فاکتور
-========================================================= */
-
-function NoInvoiceForm({
-  items,
-  pageIndex,
-  noInvoice,
-  header
-}) {
-  const total =
-    items.reduce(
-      (sum, item) =>
-        sum +
-        numberValue(
-          item.total
-        ),
-      0
-    );
-
-  return (
-    <section
-      className="paper no-invoice-paper"
-      id={`no-invoice-${pageIndex}`}
-    >
-
-      <div className="ni-frame">
-
-        <header className="ni-top">
-
-          <div className="ni-code-box">
-
-            <div>
-              کد فرم:{' '}
-              <b>
-                {
-                  noInvoice.formCode
-                }
-              </b>
-            </div>
-
-            <div>
-              کد سند مرجع:{' '}
-              <b>
-                {
-                  noInvoice.refCode ||
-                  header.refCode
-                }
-              </b>
-            </div>
-
-            <div>
-              تاریخ:{' '}
-              <b>
-                {
-                  header.date
-                }
-              </b>
-            </div>
-
-          </div>
-
-          <div className="ni-title">
-            فرم صورت هزینه بدون فاکتور
-          </div>
-
-          <div className="ni-logo">
-            <img
-              src={LOGO_SRC}
-              alt="فاران"
-            />
-          </div>
-
-        </header>
-
-<div className="ni-fields">
-
-  <div className="ni-requester">
-    <span>
-      درخواست‌کننده:
-    </span>
-
-            <b>
-              {
-                noInvoice.requester
-              }
-            </b>
-          </div>
-
-          <div>
-            <span>
-              سمت:
-            </span>
-
-            <b>
-              {
-                noInvoice.position
-              }
-            </b>
-          </div>
-
-          <div>
-            <span>
-              واحد/سازمان:
-            </span>
-
-            <b>
-              {
-                noInvoice.organization
-              }
-            </b>
-          </div>
-
-         
-
-            <b>
-              {
-                noInvoice.reason
-              }
-            </b>
-          </div>
-
-        </div>
-
-        <table className="ni-table">
-
-          <colgroup>
-
-            <col
-              style={{
-                width: '8%'
-              }}
-            />
-
-            <col
-              style={{
-                width: '35%'
-              }}
-            />
-
-            <col
-              style={{
-                width: '25%'
-              }}
-            />
-
-            <col
-              style={{
-                width: '10%'
-              }}
-            />
-
-            <col
-              style={{
-                width: '22%'
-              }}
-            />
-
-          </colgroup>
-
-          <thead>
-
-            <tr>
-              <th>ردیف</th>
-              <th>شرح هزینه</th>
-              <th>
-                محل / ارائه‌دهنده
-              </th>
-              <th>تعداد</th>
-              <th>
-                مبلغ (ریال)
-              </th>
-            </tr>
-
-          </thead>
-
-          <tbody>
-
-            {[0, 1, 2].map(i => {
-
-              const item =
-                items[i];
-
-              return (
-                <tr key={i}>
-
-                  <td>
-                    {i + 1}
-                  </td>
-
-                  <td>
-                    {item?.product ||
-                      ''}
-                  </td>
-
-                  <td>
-                    {item?.provider ||
-                      ''}
-                  </td>
-
-                  <td>
-                    {item?.qty ||
-                      ''}
-                  </td>
-
-                  <td>
-                    {item
-                      ? formatMoney(
-                          item.total
-                        )
-                      : ''}
-                  </td>
-
-                </tr>
-              );
-
-            })}
-
-            <tr className="ni-total">
-
-              <td colSpan="4">
-                جمع کل:
-              </td>
-
-              <td>
-                {formatMoney(total)}
-              </td>
-
-            </tr>
-
-          </tbody>
-
-        </table>
-
-        <div className="ni-signatures">
-
-          <div>
-            تنظیم‌کننده:{' '}
-            <b>
-              {
-                noInvoice.requester
-              }
-            </b>
-
-            <span>
-              امضاء:
-            </span>
-          </div>
-
-          <div>
-            تأییدکننده:
-            <span>
-              امضاء:
-            </span>
-          </div>
-
-          <div>
-            تصویب‌کننده:
-            <span>
-              امضاء:
-            </span>
-          </div>
-
-        </div>
-
-      </div>
-
-    </section>
-  );
+::-moz-selection {
+  background: #20252b;
+  color: #fff;
 }
-
-createRoot(
-  document.getElementById('root')
-).render(
-  <App />
-);
