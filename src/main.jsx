@@ -1371,12 +1371,12 @@ function NoInvoiceForm({
 
         </header>
 
-        <div className="ni-fields">
+<div className="ni-fields">
 
-          <div>
-            <span>
-              درخواست‌کننده:
-            </span>
+  <div className="ni-requester">
+    <span>
+      درخواست‌کننده:
+    </span>
 
             <b>
               {
