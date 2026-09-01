@@ -9,7 +9,7 @@ html, body, #root { min-height: 100%; margin: 0; }
 body { background: #e9edf2; }
 button, input, select { font: inherit; }
 .app-shell { min-height: 100vh; display: flex; flex-direction: row-reverse; gap: 22px; padding: 22px; align-items: flex-start; direction: rtl; }
-.control-panel { width: 520px; flex: 0 0 520px; background: #fff; border: 1px solid #d6dbe1; border-radius: 16px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,.07); position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; direction: rtl; }
+.control-panel { width: 560px; flex: 0 0 560px; background: #fff; border: 1px solid #d6dbe1; border-radius: 16px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,.07); position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; direction: rtl; }
 .panel-title { font-size: 22px; font-weight: 800; margin-bottom: 3px; }
 .panel-subtitle { color: #69717c; font-size: 12px; line-height: 1.8; margin-bottom: 18px; }
 .control-panel section { margin-top: 17px; padding-top: 10px; border-top: 1px solid #e6e9ed; }
@@ -21,19 +21,30 @@ button, input, select { font: inherit; }
 .control-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
 .control-grid.three { grid-template-columns: repeat(3, 1fr); }
 .jalali-date { height: 35px; position: relative; width: 100%; }
-.jalali-date input { width: 100%; height: 35px; position: absolute; inset: 0; z-index: 3; cursor: pointer; opacity: 0.01; border: 0; padding: 0; margin: 0; }
-.jalali-date input::-webkit-calendar-picker-indicator { cursor: pointer; width: 100%; height: 100%; position: absolute; opacity: 1; }
-.jalali-date span { position: absolute; inset: 0; z-index: 1; border: 1px solid #cfd5dc; border-radius: 7px; background: #fff; padding: 0 34px 0 8px; display: flex; align-items: center; justify-content: flex-end; font-size: 11px; font-weight: 400; color: #333; pointer-events: none; }
-.jalali-date::before { content: '📅'; position: absolute; right: 9px; top: 50%; transform: translateY(-50%); z-index: 2; pointer-events: none; font-size: 14px; }
-.jalali-date:focus-within span { border-color: #6b7280; box-shadow: 0 0 0 2px rgba(107,114,128,.12); }
+.jalali-input { width: 100%; height: 35px; border: 1px solid #cfd5dc; border-radius: 7px; background: #fff; cursor: pointer; padding: 0 9px; display: flex; align-items: center; justify-content: space-between; direction: rtl; color: #333; font-size: 11px; }
+.jalali-input:hover { border-color: #9aa2ab; }
+.jalali-input:focus { outline: none; border-color: #6b7280; box-shadow: 0 0 0 2px rgba(107,114,128,.12); }
+.jalali-input span:first-child { color: #999; font-weight: 400; }
+.jalali-input span:first-child.has-value { color: #333; }
+.calendar-icon { font-size: 14px; line-height: 1; }
+.jalali-calendar { position: absolute; z-index: 1000; top: calc(100% + 6px); right: 0; width: 285px; background: #fff; border: 1px solid #cfd5dc; border-radius: 12px; padding: 10px; box-shadow: 0 12px 30px rgba(0,0,0,.18); direction: rtl; }
+.jalali-calendar-head { display: grid; grid-template-columns: 34px 1fr 34px; align-items: center; gap: 6px; margin-bottom: 9px; }
+.jalali-calendar-head strong { text-align: center; font-size: 12px; }
+.jalali-calendar-head button { width: 34px; height: 30px; border: 1px solid #d7dce1; background: #f7f8f9; border-radius: 7px; cursor: pointer; font-size: 20px; line-height: 1; }
+.jalali-calendar-head button:hover { background: #e9edf2; }
+.jalali-weekdays, .jalali-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.jalali-weekdays span { text-align: center; font-size: 9px; color: #6b7280; font-weight: 700; padding: 4px 0; }
+.jalali-days button, .jalali-days span { height: 30px; min-width: 0; }
+.jalali-days button { border: 0; background: #fff; border-radius: 7px; cursor: pointer; font-size: 10px; color: #222; }
+.jalali-days button:hover { background: #eef0f2; }
+.jalali-days button.selected { background: #20252b; color: #fff; font-weight: 700; }
 .editor-table { display: grid; gap: 6px; }
 .editor-row { border: 1px solid #e0e4e8; background: #f8f9fa; border-radius: 8px; padding: 7px; display: grid; grid-template-columns: 28px 1fr 1fr; gap: 5px; }
 .editor-row b { grid-column: 1 / -1; font-size: 10px; color: #555; }
 .editor-row input, .editor-row select { width: 100%; height: 31px; border: 1px solid #d3d8de; border-radius: 6px; padding: 0 5px; font-size: 10px; min-width: 0; direction: rtl; text-align: right; background: #fff; }
 .editor-row .jalali-date { height: 31px; }
-.editor-row .jalali-date input { height: 31px; }
-.editor-row .jalali-date span { height: 31px; font-size: 10px; padding-right: 30px; }
-.editor-row .jalali-date::before { right: 7px; font-size: 12px; }
+.editor-row .jalali-input { height: 31px; font-size: 10px; padding: 0 6px; }
+.editor-row .calendar-icon { font-size: 12px; }
 .editor-row .description-input { white-space: pre-wrap; }
 .helper { font-size: 10px; color: #777; line-height: 1.8; margin-top: 4px; }
 .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 18px; }
@@ -105,9 +116,9 @@ button, input, select { font: inherit; }
 .checks { display: flex; gap: 12px; align-items: center; margin-top: 18px; white-space: nowrap; }
 .notes { height: 10%; border-top: 1px solid #111; padding: 5px 7px; font-size: 8.5px; overflow: hidden; }
 .no-invoice-pages { display: flex; flex-direction: column; gap: 18px; width: min(100%, 820px); }
-@media (max-width: 1050px) { .app-shell { flex-direction: column; padding: 10px; } .control-panel { width: 100%; flex-basis: auto; position: relative; top: auto; max-height: none; } .preview-area { width: 100%; } }
-@media (max-width: 650px) { .control-grid, .control-grid.three { grid-template-columns: 1fr; } .action-grid { grid-template-columns: 1fr; } .main-paper { min-width: 760px; } .no-invoice-paper { min-width: 650px; } .preview-area { overflow-x: auto; align-items: flex-start; } .preview-note { align-self: flex-start; } }
-@media print { @page { size: A4 landscape; margin: 0; } html, body, #root { background: #fff !important; } .no-print, .control-panel, .preview-note { display: none !important; } .app-shell { display: block !important; padding: 0 !important; margin: 0 !important; min-height: auto; } .preview-area { display: block !important; width: 100% !important; } .paper { box-shadow: none !important; border: none !important; margin: 0 !important; } .main-paper { width: 297mm !important; height: 210mm !important; aspect-ratio: auto !important; page-break-after: always; } .no-invoice-pages { width: auto !important; display: block !important; } .no-invoice-paper { width: 210mm !important; height: 297mm !important; aspect-ratio: auto !important; page-break-after: always; } .ni-frame { width: 86% !important; height: 88% !important; left: 7% !important; top: 6% !important; } .jalali-date input { opacity: 0 !important; } }
+@media (max-width: 1100px) { .app-shell { flex-direction: column; padding: 10px; } .control-panel { width: 100%; flex-basis: auto; position: relative; top: auto; max-height: none; } .preview-area { width: 100%; } }
+@media (max-width: 650px) { .control-grid, .control-grid.three { grid-template-columns: 1fr; } .action-grid { grid-template-columns: 1fr; } .main-paper { min-width: 760px; } .no-invoice-paper { min-width: 650px; } .preview-area { overflow-x: auto; align-items: flex-start; } .preview-note { align-self: flex-start; } .control-panel { width: 100%; } .jalali-calendar { width: 270px; right: 0; } }
+@media print { @page { size: A4 landscape; margin: 0; } html, body, #root { background: #fff !important; } .no-print, .control-panel, .preview-note { display: none !important; } .app-shell { display: block !important; padding: 0 !important; margin: 0 !important; min-height: auto; } .preview-area { display: block !important; width: 100% !important; } .paper { box-shadow: none !important; border: none !important; margin: 0 !important; } .main-paper { width: 297mm !important; height: 210mm !important; aspect-ratio: auto !important; page-break-after: always; } .no-invoice-pages { width: auto !important; display: block !important; } .no-invoice-paper { width: 210mm !important; height: 297mm !important; aspect-ratio: auto !important; page-break-after: always; } .ni-frame { width: 86% !important; height: 88% !important; left: 7% !important; top: 6% !important; } }
 .control-panel::-webkit-scrollbar { width: 8px; }
 .control-panel::-webkit-scrollbar-track { background: #f1f3f5; border-radius: 10px; }
 .control-panel::-webkit-scrollbar-thumb { background: #cfd5dc; border-radius: 10px; }
