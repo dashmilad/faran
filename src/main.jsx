@@ -2,39 +2,317 @@ import React, { useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
+import './styles.css';
 
 const LOGO_SRC = `${import.meta.env.BASE_URL}logo.png`;
 const SERVICES = ['pm', 'نصب اولیه', 'بازدید فروش', 'بازدید فنی', 'اعلام خرابی رفاه', 'اعلام خرابی مشتری'];
-const KEYWORDS = ['تاکسی','ناهار','صبحانه','شام','پذیرایی','پارکینگ','بنزین','سوخت','بلیط','بلیت','اقامت','هتل','مترو','اتوبوس','اسنپ','تپسی'];
-const emptyRow = () => ({ date:'', place:'', service:'', invoice:'', description:'', amount:'' });
-const toNum = v => Number(String(v ?? '').replace(/[,٬]/g,'').replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d))) || 0;
-const money = v => { const n=toNum(v); return n ? new Intl.NumberFormat('fa-IR').format(n) : ''; };
-const hasKeyword = s => KEYWORDS.some(k => String(s||'').includes(k));
-const chunks = (a,n) => Array.from({length:Math.ceil(a.length/n)},(_,i)=>a.slice(i*n,i*n+n));
+const KEYWORDS = ['تاکسی', 'ناهار', 'صبحانه', 'شام', 'پذیرایی', 'پارکینگ', 'بنزین', 'سوخت', 'بلیط', 'بلیت', 'اقامت', 'هتل', 'مترو', 'اتوبوس', 'اسنپ', 'تپسی'];
+const emptyRow = () => ({ date: '', place: '', service: '', invoice: '', description: '', amount: '' });
 
-function gy(jy,jm,jd){let jy2=jy+1595,days=-355668+365*jy2+Math.floor(jy2/33)*8+Math.floor(((jy2%33)+3)/4)+jd+(jm<7?(jm-1)*31:(jm-7)*30+186);let gy=400*Math.floor(days/146097);days%=146097;if(days>36524){gy+=100*Math.floor(--days/36524);days%=36524;if(days>=365)days++;}gy+=4*Math.floor(days/1461);days%=1461;if(days>365){gy+=Math.floor((days-1)/365);days=(days-1)%365;}let gd=days+1,leap=gy%4===0&&(gy%100!==0||gy%400===0),gm=1,left=gd,md=[31,leap?29:28,31,30,31,30,31,31,30,31,30,31];while(left>md[gm-1]&&gm<=12){left-=md[gm-1];gm++;}return `${gy}-${String(gm).padStart(2,'0')}-${String(left).padStart(2,'0')}`;}
-function jDate(value,onChange){return <div className="jd"><input type="date" value={/^\d{4}\/\d{2}\/\d{2}$/.test(value)?gy(...value.split('/').map(Number)):''} onChange={e=>{if(!e.target.value)return onChange('');const [y,m,d]=e.target.value.split('-').map(Number);const gdm=[0,31,59,90,120,151,181,212,243,273,304,334];let y2=m>2?y+1:y,days=355666+365*y+Math.floor((y2+3)/4)-Math.floor((y2+99)/100)+Math.floor((y2+399)/400)+d+gdm[m-1],jy=-1595+33*Math.floor(days/12053);days%=12053;jy+=4*Math.floor(days/1461);days%=1461;if(days>365){jy+=Math.floor((days-1)/365);days=(days-1)%365;}const jm=days<186?1+Math.floor(days/31):7+Math.floor((days-186)/30),jd=1+(days<186?days%31:(days-186)%30);onChange(`${jy}/${String(jm).padStart(2,'0')}/${String(jd).padStart(2,'0')}`)}}/><span>{value||'تاریخ شمسی'}</span></div>}
+const toNum = value => Number(String(value ?? '').replace(/[,٬\s]/g, '').replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))) || 0;
+const money = value => {
+  const n = toNum(value);
+  return n ? new Intl.NumberFormat('fa-IR').format(n) : '';
+};
+const hasKeyword = value => KEYWORDS.some(k => String(value || '').includes(k));
+const chunks = (arr, size) => Array.from({ length: Math.ceil(arr.length / size) }, (_, i) => arr.slice(i * size, i * size + size));
 
-const CSS=`
-*{box-sizing:border-box}html,body,#root{margin:0;min-height:100%;font-family:Tahoma,Arial,sans-serif}body{background:#e9edf2;color:#111}button,input,select{font:inherit}.app{direction:rtl;display:flex;flex-direction:row-reverse;gap:20px;padding:20px;align-items:flex-start}.panel{width:450px;flex:none;background:#fff;border:1px solid #d5d9de;border-radius:14px;padding:16px;box-shadow:0 8px 25px #0001;max-height:calc(100vh - 30px);overflow:auto}.panel h2{font-size:20px;margin:0 0 4px}.muted{font-size:11px;color:#777;line-height:1.8}.sec{border-top:1px solid #e4e7eb;margin-top:15px;padding-top:12px}.sec h3{font-size:13px;margin:0 0 9px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:7px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.field{font-size:11px;font-weight:bold;margin-bottom:7px}.field input,.field select{display:block;width:100%;height:35px;margin-top:4px;border:1px solid #cdd2d8;border-radius:7px;padding:0 7px;direction:rtl;text-align:right;background:#fff}.rows{display:grid;gap:6px}.row{border:1px solid #e0e4e8;background:#f8f9fa;border-radius:8px;padding:7px;display:grid;grid-template-columns:38px 1fr 1fr;gap:5px}.row b{grid-column:1/-1;font-size:10px;color:#555}.row input,.row select{height:31px;border:1px solid #d3d8de;border-radius:6px;padding:0 5px;font-size:10px;min-width:0;direction:rtl}.actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:14px}.actions button{height:40px;border:0;border-radius:8px;background:#20252b;color:#fff;font-size:11px;font-weight:bold;cursor:pointer}.actions .light{background:#eef0f2;color:#222}.actions button:disabled{opacity:.45}.preview{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:18px}.label{font-size:11px;color:#68717b}.paper{background:#fff;box-shadow:0 8px 30px #0002;position:relative}.main-paper{width:min(100%,1120px);aspect-ratio:297/210;padding:6.2% 6%;}.main-frame{width:100%;height:100%;display:flex;flex-direction:column}.mh{height:17%;display:grid;grid-template-columns:18% 47% 35%;direction:ltr;border:1.4px solid #111}.mh>*{direction:rtl}.mh-logo{display:flex;align-items:center;justify-content:center;border-left:1px solid #111}.mh-logo img{width:72%;max-height:75%;object-fit:contain}.mh-title{display:flex;align-items:center;justify-content:center;text-align:center;border-left:1px solid #111;font-size:clamp(9px,1.2vw,15px);font-weight:bold}.mh-codes{display:flex;flex-direction:column;font-size:clamp(8px,.95vw,12px);text-align:right}.mh-codes div{flex:1;border-bottom:1px solid #111;display:flex;align-items:center;justify-content:flex-start;padding:0 7px;direction:rtl}.mh-codes div:last-child{border:0}.expense{width:100%;height:66%;border-collapse:collapse;table-layout:fixed;direction:rtl;font-size:clamp(6px,.8vw,10px)}.expense th,.expense td{border:1px solid #111;text-align:center;vertical-align:middle;padding:1px 3px}.expense th{height:11%;background:#f7f7f7;line-height:1.25}.expense tbody tr{height:9.4%}.expense td.desc{white-space:normal;text-align:right;line-height:1.2}.expense .total td{font-weight:bold;height:8%;background:#fafafa}.expense .review{text-align:right!important}.sigs{height:17%;display:grid;grid-template-columns:1fr 1fr 1fr;direction:rtl}.sigs>div{border:1px solid #111;border-top:0;padding:7px;font-size:clamp(7px,.75vw,10px);text-align:right}.sigs>div+div{border-right:0}.sigs strong{display:block;margin-top:20px;font-weight:normal}.ni-paper{width:min(100%,1120px);aspect-ratio:297/210;padding:3.8% 4%;}.ni-frame{width:100%;height:100%;border:1.5px solid #111;display:flex;flex-direction:column;position:relative}.ni-head{height:18%;display:grid;grid-template-columns:18% 47% 35%;direction:ltr;border-bottom:1px solid #111}.ni-head>*{direction:rtl}.ni-logo{display:flex;align-items:center;justify-content:center;border-right:1px solid #111}.ni-logo img{width:75%;max-height:75%;object-fit:contain}.ni-title{display:flex;align-items:center;justify-content:center;text-align:center;border-right:1px solid #111;font-size:clamp(10px,1.25vw,15px);font-weight:bold}.ni-codes{display:flex;flex-direction:column;font-size:clamp(7px,.8vw,10px);text-align:right}.ni-codes div{flex:1;border-bottom:1px solid #111;display:flex;align-items:center;justify-content:flex-start;padding:0 6px;direction:rtl;unicode-bidi:plaintext}.ni-codes div:last-child{border:0}.ni-info{height:17%;border-bottom:1px solid #111;display:grid;grid-template-columns:1fr 1fr;font-size:clamp(7px,.78vw,10px)}.ni-info div{padding:5px 7px;border-left:1px solid #111;display:flex;align-items:center;gap:4px}.ni-info div:nth-child(2n){border-left:0}.ni-info .wide{grid-column:1/-1;border-top:1px solid #111}.ni-table{height:36%;width:100%;border-collapse:collapse;table-layout:fixed;direction:rtl;font-size:clamp(7px,.76vw,10px)}.ni-table th,.ni-table td{border:1px solid #111;text-align:center;vertical-align:middle;padding:2px}.ni-table th{height:20%;background:#f7f7f7}.ni-table tbody tr{height:26.6%}.ni-table .sum td{height:16%;font-weight:bold}.ni-bottom{height:29%;display:grid;grid-template-columns:1fr 1fr 1fr;direction:rtl;border-top:0}.ni-bottom>div{border-left:1px solid #111;padding:6px;font-size:clamp(7px,.72vw,9px);position:relative}.ni-bottom>div:last-child{border-left:0}.ni-bottom h4{font-size:clamp(8px,.8vw,10px);margin:0 0 8px;padding-bottom:5px;border-bottom:1px solid #111}.reason{line-height:1.7}.dotline{border-bottom:1px dotted #222;min-height:20px}.signline{position:absolute;bottom:7px;right:6px;left:6px;border-top:1px dotted #222;padding-top:4px}.checks{display:flex;gap:22px;align-items:center;margin-top:22px}.notes{height:10%;border-top:1px solid #111;padding:5px 7px;font-size:clamp(7px,.72vw,9px)}.jd{height:35px;position:relative}.jd input{width:100%;height:35px;opacity:0;cursor:pointer;position:absolute;z-index:2}.jd span{position:absolute;inset:0;border:1px solid #cdd2d8;border-radius:7px;background:#fff;padding:0 7px;display:flex;align-items:center;justify-content:flex-end;font-size:11px;font-weight:normal;pointer-events:none}.no-print{}.pages{display:flex;flex-direction:column;gap:18px;width:min(100%,1120px)}
-@media(max-width:1050px){.app{flex-direction:column;padding:10px}.panel{width:100%;max-height:none}.preview{width:100%}}@media(max-width:650px){.grid2,.grid3{grid-template-columns:1fr}.actions{grid-template-columns:1fr}.main-paper,.ni-paper{min-width:760px}.preview{overflow:auto;align-items:flex-start}.panel{width:100%}}@media print{@page{size:A4 landscape;margin:0}body{background:#fff}.no-print,.panel,.label{display:none!important}.app{display:block;padding:0}.preview{display:block}.main-paper,.ni-paper{width:297mm;height:210mm;box-shadow:none;margin:0 auto;break-after:page}.pages{width:auto;gap:0}.ni-paper{padding:3.8% 4%}.jd input{display:none}}
-`;
-
-function App(){
- const [header,setHeader]=useState({title:'فرم صورت ریز هزینه های تنخواه واحد خدمات',docCode:'FI-B-FO-112/00',serviceCode:'FI-B-RE-001/00',date:'1404/05/27',reviewDate:''});
- const [rows,setRows]=useState(Array.from({length:8},()=>({...emptyRow(),date:'1404/05/27'})));
- const [ni,setNi]=useState({formCode:'FI-B-FO-135/00',referenceCode:'FI-B-RE-001/00',date:'1404/05/27',requester:'',position:'',organization:'',reason:'',approverComment:'',approved:null,notes:''});
- const [sig,setSig]=useState({requester:'',confirmer:'',issuer:''});
- const [busy,setBusy]=useState(false);const [niBusy,setNiBusy]=useState(false);
- const total=useMemo(()=>rows.reduce((s,r)=>s+toNum(r.amount),0),[rows]);
- const niItems=useMemo(()=>rows.filter(r=>hasKeyword(r.description)&&toNum(r.amount)>0).map(r=>({product:String(r.description).trim(),provider:r.place||'',qty:'1',unit:r.amount,total:r.amount,date:r.date||header.date})),[rows,header.date]);
- const niPages=useMemo(()=>chunks(niItems,3),[niItems]);
- const updRow=(i,k,v)=>setRows(p=>p.map((r,x)=>x===i?{...r,[k]:v}:r));
- const updDate=v=>{setHeader(h=>({...h,date:v}));setRows(p=>p.map(r=>({...r,date:v})));setNi(n=>({...n,date:v}));};
- const pdf=async(node,name,orientation)=>{const c=await html2canvas(node,{scale:2.5,backgroundColor:'#fff',useCORS:true,logging:false});const p=new jsPDF({orientation,unit:'mm',format:'a4',compress:true});const W=orientation==='landscape'?297:210,H=orientation==='landscape'?210:297,m=4,r=Math.min((W-2*m)/c.width,(H-2*m)/c.height),w=c.width*r,h=c.height*r;p.addImage(c.toDataURL('image/jpeg',.96),'JPEG',(W-w)/2,(H-h)/2,w,h,undefined,'FAST');p.save(name)};
- const exportMain=async()=>{setBusy(true);try{await pdf(document.getElementById('main-paper'),`فرم-هزینه-${header.date}.pdf`,'landscape')}finally{setBusy(false)}};
- const exportNI=async()=>{if(!niPages.length)return;setNiBusy(true);try{let p=null;for(let i=0;i<niPages.length;i++){const n=document.getElementById(`ni-${i}`);const c=await html2canvas(n,{scale:2.5,backgroundColor:'#fff',useCORS:true});if(!p)p=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});else p.addPage();const r=Math.min(289/c.width,202/c.height),w=c.width*r,h=c.height*r;p.addImage(c.toDataURL('image/jpeg',.96),'JPEG',(297-w)/2,(210-h)/2,w,h)}if(p)p.save(`فرم-بدون-فاکتور-${header.date}.pdf`)}finally{setNiBusy(false)}};
- const NoInvoice=({items,index})=>{const sum=items.reduce((s,x)=>s+toNum(x.total),0);return <section id={`ni-${index}`} className="paper ni-paper"><div className="ni-frame"><div className="ni-head"><div className="ni-logo"><img src={LOGO_SRC}/></div><div className="ni-title">فرم صورت هزینه بدون فاکتور</div><div className="ni-codes"><div>کد فرم : {ni.formCode}</div><div>کد سند مرجع : {ni.referenceCode}</div></div></div><div className="ni-info"><div><b>تاریخ :</b>{ni.date}</div><div><b>نام و نام خانوادگی درخواست کننده :</b>{ni.requester||'................................'}</div><div><b>سمت :</b>{ni.position||'........................'}</div><div><b>واحد سازمانی :</b>{ni.organization||'........................'}</div><div className="wide"><b>شرح :</b>{ni.reason||'................................................................................................'}</div></div><table className="ni-table"><thead><tr><th>ردیف</th><th>مشخصات کالا / خدمات</th><th>آدرس ارائه دهنده کالا / خدمات</th><th>تعداد</th><th>مبلغ واحد</th><th>مبلغ کل (ریال)</th></tr></thead><tbody>{items.map((x,i)=><tr key={i}><td>{i+1}</td><td>{x.product}</td><td>{x.provider}</td><td>{x.qty}</td><td>{money(x.unit)}</td><td>{money(x.total)}</td></tr>)}{Array.from({length:3-items.length},(_,i)=><tr key={'e'+i}><td>{items.length+i+1}</td><td></td><td></td><td></td><td></td><td></td></tr>)}<tr className="sum"><td colSpan="5">جمع کل (ریال)</td><td>{money(sum)}</td></tr></tbody></table><div className="ni-bottom"><div><h4>درخواست کننده</h4><div className="reason">دلیل استفاده از کالا / خدمات :</div><div className="dotline">{ni.reason}</div><div className="signline">امضاء درخواست کننده : {sig.requester}</div></div><div><h4>تایید کننده</h4><div>اظهار نظر تایید کننده</div><div className="dotline">{ni.approverComment}</div><div className="checks"><span>□ موافقت میشود</span><span>□ موافقت نمیشود</span></div><div className="signline">امضاء تایید کننده : {sig.confirmer}</div></div><div><h4> </h4><div className="reason">&nbsp;</div></div></div><div className="notes"><b>توضیحات :</b> {ni.notes||'........................................................................................................................'}</div></div></section>};
- return <><style>{CSS}</style><div className="app"><aside className="panel no-print"><h2>فرم ثبت هزینه</h2><div className="muted">فرم‌ها مطابق نمونه ارسالی طراحی شده‌اند و خروجی A4 آماده چاپ است.</div><div className="sec"><h3>مشخصات سربرگ فرم اصلی</h3><label className="field">عنوان فرم<input value={header.title} onChange={e=>setHeader({...header,title:e.target.value})}/></label><div className="grid2"><label className="field">کد سند<input value={header.docCode} onChange={e=>setHeader({...header,docCode:e.target.value})}/></label><label className="field">کد سند مرجع<input value={header.serviceCode} onChange={e=>setHeader({...header,serviceCode:e.target.value})}/></label></div><div className="grid2"><label className="field">تاریخ{jDate(header.date,updDate)}</label><label className="field">تاریخ واریزی{jDate(header.reviewDate,v=>setHeader({...header,reviewDate:v}))}</label></div></div><div className="sec"><h3>ردیف‌های هزینه</h3><div className="rows">{rows.map((r,i)=><div className="row" key={i}><b>ردیف {i+1}</b>{jDate(r.date,v=>updRow(i,'date',v))}<input placeholder="محل مراجعه (بانک / شرکت)" value={r.place} onChange={e=>updRow(i,'place',e.target.value)}/><select value={r.service} onChange={e=>updRow(i,'service',e.target.value)}><option value="">نوع خدمات</option>{SERVICES.map(s=><option key={s}>{s}</option>)}</select><input placeholder="شماره قرارداد / فاکتور" value={r.invoice} onChange={e=>updRow(i,'invoice',e.target.value)}/><input placeholder="شرح هزینه" value={r.description} onChange={e=>updRow(i,'description',e.target.value)}/><input inputMode="numeric" placeholder="مبلغ (ریال)" value={r.amount} onChange={e=>updRow(i,'amount',e.target.value)}/></div>)}</div></div><div className="sec"><h3>اطلاعات فرم بدون فاکتور</h3><div className="grid2"><label className="field">کد فرم<input value={ni.formCode} onChange={e=>setNi({...ni,formCode:e.target.value})}/></label><label className="field">کد سند مرجع<input value={ni.referenceCode} onChange={e=>setNi({...ni,referenceCode:e.target.value})}/></label><label className="field">تاریخ{jDate(ni.date,v=>setNi({...ni,date:v}))}</label><label className="field">درخواست کننده<input value={ni.requester} onChange={e=>setNi({...ni,requester:e.target.value})}/></label><label className="field">سمت<input value={ni.position} onChange={e=>setNi({...ni,position:e.target.value})}/></label><label className="field">واحد سازمانی<input value={ni.organization} onChange={e=>setNi({...ni,organization:e.target.value})}/></label></div><label className="field">دلیل استفاده از کالا / خدمات<input value={ni.reason} onChange={e=>setNi({...ni,reason:e.target.value})}/></label><label className="field">اظهار نظر تایید کننده<input value={ni.approverComment} onChange={e=>setNi({...ni,approverComment:e.target.value})}/></label><label className="field">توضیحات<input value={ni.notes} onChange={e=>setNi({...ni,notes:e.target.value})}/></label><div className="muted">هزینه‌هایی که شرح آن‌ها شامل مواردی مثل تاکسی، بلیط، ناهار، هتل، سوخت و... باشد، با مبلغ به فرم بدون فاکتور منتقل می‌شوند. هر فرم ۳ ردیف دارد.</div></div><div className="sec"><h3>امضاها</h3><div className="grid3"><label className="field">تنظیم کننده<input value={sig.requester} onChange={e=>setSig({...sig,requester:e.target.value})}/></label><label className="field">تایید کننده<input value={sig.confirmer} onChange={e=>setSig({...sig,confirmer:e.target.value})}/></label><label className="field">تصویب کننده<input value={sig.issuer} onChange={e=>setSig({...sig,issuer:e.target.value})}/></label></div></div><div className="actions"><button onClick={()=>window.print()}>🖨 چاپ همه فرم‌ها</button><button onClick={exportMain} disabled={busy}>{busy?'در حال ساخت…':'📄 PDF فرم اصلی'}</button><button onClick={exportNI} disabled={niBusy||!niPages.length}>{niBusy?'در حال ساخت…':'📄 PDF بدون فاکتور'}</button><button className="light" onClick={()=>{setRows(Array.from({length:8},()=>({...emptyRow(),date:header.date})));setHeader(h=>({...h,reviewDate:''}));setNi(n=>({...n,date:header.date,requester:'',position:'',organization:'',reason:'',approverComment:'',notes:'',approved:null}));setSig({requester:'',confirmer:'',issuer:''})}}>پاک کردن اطلاعات</button></div></aside><main className="preview"><div className="label no-print">پیش‌نمایش فرم اصلی</div><section id="main-paper" className="paper main-paper"><div className="main-frame"><div className="mh"><div className="mh-logo"><img src={LOGO_SRC}/></div><div className="mh-title">{header.title}</div><div className="mh-codes"><div>کد سند : {header.docCode}</div><div>کد سند مرجع : {header.serviceCode}</div><div>تاریخ : {header.date}</div></div></div><table className="expense"><thead><tr><th>ردیف</th><th>تاریخ</th><th>محل مراجعه<br/>(بانک / شرکت)</th><th>نوع خدمات</th><th>شماره قرارداد / فاکتور</th><th>شرح هزینه</th><th>مبلغ هزینه (ریال)</th></tr></thead><tbody>{rows.map((r,i)=><tr key={i}><td>{i+1}</td><td>{r.date}</td><td>{r.place}</td><td>{r.service}</td><td>{r.invoice}</td><td className="desc">{r.description}</td><td>{money(r.amount)}</td></tr>)}<tr className="total"><td colSpan="2" className="review">تاریخ واریزی : {header.reviewDate||'………………'}</td><td colSpan="4" className="review">جمع کل هزینه :</td><td>{money(total)}</td></tr></tbody></table><div className="sigs"><div><b>نام و امضاء</b><span>تنظیم کننده :</span><strong>{sig.requester}</strong></div><div><b>نام و امضاء</b><span>تایید کننده :</span><strong>{sig.confirmer}</strong></div><div><b>نام و امضاء</b><span>تصویب کننده :</span><strong>{sig.issuer}</strong></div></div></div></section>{niPages.length>0&&<><div className="label no-print">پیش‌نمایش فرم‌های هزینه بدون فاکتور</div><div className="pages">{niPages.map((items,i)=><NoInvoice key={i} items={items} index={i}/>)}</div></>}</main></div></>;
+function jalaliToGregorian(jy, jm, jd) {
+  let jy2 = jy + 1595;
+  let days = -355668 + 365 * jy2 + Math.floor(jy2 / 33) * 8 + Math.floor(((jy2 % 33) + 3) / 4) + jd + (jm < 7 ? (jm - 1) * 31 : (jm - 7) * 30 + 186);
+  let gy = 400 * Math.floor(days / 146097);
+  days %= 146097;
+  if (days > 36524) { gy += 100 * Math.floor(--days / 36524); days %= 36524; if (days >= 365) days++; }
+  gy += 4 * Math.floor(days / 1461);
+  days %= 1461;
+  if (days > 365) { gy += Math.floor((days - 1) / 365); days = (days - 1) % 365; }
+  const gd = days + 1;
+  const leap = gy % 4 === 0 && (gy % 100 !== 0 || gy % 400 === 0);
+  const md = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  let gm = 1, day = gd;
+  while (day > md[gm - 1] && gm <= 12) { day -= md[gm - 1]; gm++; }
+  return `${gy}-${String(gm).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
-createRoot(document.getElementById('root')).render(<App/>);
+
+function gregorianToJalali(gy, gm, gd) {
+  const gdm = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+  const gy2 = gm > 2 ? gy + 1 : gy;
+  let days = 355666 + 365 * gy + Math.floor((gy2 + 3) / 4) - Math.floor((gy2 + 99) / 100) + Math.floor((gy2 + 399) / 400) + gd + gdm[gm - 1];
+  let jy = -1595 + 33 * Math.floor(days / 12053);
+  days %= 12053;
+  jy += 4 * Math.floor(days / 1461);
+  days %= 1461;
+  if (days > 365) { jy += Math.floor((days - 1) / 365); days = (days - 1) % 365; }
+  const jm = days < 186 ? 1 + Math.floor(days / 31) : 7 + Math.floor((days - 186) / 30);
+  const jd = 1 + (days < 186 ? days % 31 : (days - 186) % 30);
+  return `${jy}/${String(jm).padStart(2, '0')}/${String(jd).padStart(2, '0')}`;
+}
+
+function JalaliDate({ value, onChange }) {
+  const gregorianValue = /^\d{4}\/\d{2}\/\d{2}$/.test(value) ? jalaliToGregorian(...value.split('/').map(Number)) : '';
+  return (
+    <div className="jalali-date">
+      <input type="date" value={gregorianValue} onChange={e => {
+        if (!e.target.value) return onChange('');
+        const [y, m, d] = e.target.value.split('-').map(Number);
+        onChange(gregorianToJalali(y, m, d));
+      }} />
+      <span>{value || 'تاریخ شمسی'}</span>
+    </div>
+  );
+}
+
+function App() {
+  const [header, setHeader] = useState({
+    title: 'فرم صورت ریز هزینه های تنخواه واحد خدمات',
+    docCode: 'FI-B-FO-112/00',
+    serviceCode: 'FI-B-RE-001/00',
+    date: '1404/05/27',
+    reviewDate: ''
+  });
+  const [rows, setRows] = useState(Array.from({ length: 8 }, () => ({ ...emptyRow(), date: '1404/05/27' })));
+  const [ni, setNi] = useState({
+    formCode: 'FI-B-FO-135/00',
+    referenceCode: 'FI-B-RE-001/00',
+    date: '1404/05/27',
+    requester: '',
+    position: '',
+    organization: '',
+    reason: '',
+    approverComment: '',
+    notes: ''
+  });
+  const [sig, setSig] = useState({ requester: '', confirmer: '', issuer: '' });
+  const [busy, setBusy] = useState(false);
+  const [niBusy, setNiBusy] = useState(false);
+
+  const total = useMemo(() => rows.reduce((sum, row) => sum + toNum(row.amount), 0), [rows]);
+  const niItems = useMemo(() => rows
+    .filter(row => hasKeyword(row.description) && toNum(row.amount) > 0)
+    .map(row => ({
+      product: String(row.description).trim(),
+      provider: row.place || '',
+      qty: '1',
+      unit: row.amount,
+      total: row.amount,
+      date: row.date || header.date
+    })), [rows, header.date]);
+  const niPages = useMemo(() => chunks(niItems, 3), [niItems]);
+
+  const updateRow = (index, key, value) => setRows(prev => prev.map((row, i) => i === index ? { ...row, [key]: value } : row));
+  const updateMainDate = value => {
+    setHeader(h => ({ ...h, date: value }));
+    setRows(prev => prev.map(row => ({ ...row, date: value })));
+    setNi(n => ({ ...n, date: value }));
+  };
+
+  const makePdf = async (node, filename, orientation = 'landscape') => {
+    const canvas = await html2canvas(node, { scale: 2.5, backgroundColor: '#fff', useCORS: true, logging: false });
+    const pdf = new jsPDF({ orientation, unit: 'mm', format: 'a4', compress: true });
+    const pageW = orientation === 'landscape' ? 297 : 210;
+    const pageH = orientation === 'landscape' ? 210 : 297;
+    const margin = 4;
+    const ratio = Math.min((pageW - margin * 2) / canvas.width, (pageH - margin * 2) / canvas.height);
+    const w = canvas.width * ratio;
+    const h = canvas.height * ratio;
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.96), 'JPEG', (pageW - w) / 2, (pageH - h) / 2, w, h, undefined, 'FAST');
+    pdf.save(filename);
+  };
+
+  const exportMain = async () => {
+    setBusy(true);
+    try { await makePdf(document.getElementById('main-paper'), `فرم-هزینه-${header.date || 'بدون-تاریخ'}.pdf`, 'landscape'); }
+    finally { setBusy(false); }
+  };
+
+  const exportNoInvoice = async () => {
+    if (!niPages.length) return;
+    setNiBusy(true);
+    try {
+      let pdf = null;
+      for (let i = 0; i < niPages.length; i++) {
+        const node = document.getElementById(`ni-${i}`);
+        const canvas = await html2canvas(node, { scale: 2.5, backgroundColor: '#fff', useCORS: true, logging: false });
+        if (!pdf) pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+        else pdf.addPage('a4', 'portrait');
+        const ratio = Math.min(202 / canvas.width, 289 / canvas.height);
+        const w = canvas.width * ratio;
+        const h = canvas.height * ratio;
+        pdf.addImage(canvas.toDataURL('image/jpeg', 0.96), 'JPEG', (210 - w) / 2, (297 - h) / 2, w, h, undefined, 'FAST');
+      }
+      if (pdf) pdf.save(`فرم-بدون-فاکتور-${header.date || 'بدون-تاریخ'}.pdf`);
+    } finally { setNiBusy(false); }
+  };
+
+  const reset = () => {
+    setRows(Array.from({ length: 8 }, () => ({ ...emptyRow(), date: header.date })));
+    setHeader(h => ({ ...h, reviewDate: '' }));
+    setNi(n => ({ ...n, date: header.date, requester: '', position: '', organization: '', reason: '', approverComment: '', notes: '' }));
+    setSig({ requester: '', confirmer: '', issuer: '' });
+  };
+
+  const NoInvoice = ({ items, index }) => {
+    const sum = items.reduce((s, item) => s + toNum(item.total), 0);
+    return (
+      <section id={`ni-${index}`} className="paper no-invoice-paper">
+        <div className="ni-frame">
+          <div className="ni-top">
+            <div className="ni-logo"><img src={LOGO_SRC} alt="فاران" /></div>
+            <div className="ni-title">فرم صورت هزینه بدون فاکتور</div>
+            <div className="ni-code-box">
+              <div>کد فرم : <b>{ni.formCode}</b></div>
+              <div>کد سند مرجع : <b>{ni.referenceCode}</b></div>
+            </div>
+          </div>
+
+          <div className="ni-info">
+            <div><b>تاریخ :</b><span>{ni.date}</span></div>
+            <div><b>نام و نام خانوادگی درخواست کننده :</b><span>{ni.requester || '................................'}</span></div>
+            <div><b>سمت :</b><span>{ni.position || '........................'}</span></div>
+            <div><b>واحد سازمانی :</b><span>{ni.organization || '........................'}</span></div>
+            <div className="wide"><b>شرح :</b><span>{ni.reason || '................................................................................................'}</span></div>
+          </div>
+
+          <table className="ni-table">
+            <thead><tr>
+              <th>ردیف</th><th>مشخصات کالا / خدمات</th><th>آدرس ارائه دهنده کالا / خدمات</th><th>تعداد</th><th>مبلغ واحد</th><th>مبلغ کل (ریال)</th>
+            </tr></thead>
+            <tbody>
+              {items.map((item, i) => <tr key={i}><td>{i + 1}</td><td>{item.product}</td><td>{item.provider}</td><td>{item.qty}</td><td>{money(item.unit)}</td><td>{money(item.total)}</td></tr>)}
+              {Array.from({ length: 3 - items.length }, (_, i) => <tr key={`empty-${i}`}><td>{items.length + i + 1}</td><td></td><td></td><td></td><td></td><td></td></tr>)}
+              <tr className="ni-total"><td colSpan="5">جمع کل (ریال)</td><td>{money(sum)}</td></tr>
+            </tbody>
+          </table>
+
+          <div className="ni-bottom">
+            <div className="ni-requester">
+              <div className="vertical-requester">درخواست کننده</div>
+              <div className="ni-bottom-content">
+                <h4>دلیل استفاده از کالا / خدمات</h4>
+                <div className="reason-text">{ni.reason || '................................................................................................'}</div>
+                <div className="signline">امضاء درخواست کننده : {sig.requester}</div>
+              </div>
+            </div>
+            <div>
+              <h4>تایید کننده</h4>
+              <div>اظهار نظر تایید کننده</div>
+              <div className="reason-text">{ni.approverComment || '................................................................................................'}</div>
+              <div className="checks"><span>□ موافقت میشود</span><span>□ موافقت نمیشود</span></div>
+              <div className="signline">امضاء تایید کننده : {sig.confirmer}</div>
+            </div>
+            <div>
+              <h4>تصویب کننده</h4>
+              <div className="signline">امضاء تصویب کننده : {sig.issuer}</div>
+            </div>
+          </div>
+          <div className="notes"><b>توضیحات :</b> {ni.notes || '........................................................................................................................'}</div>
+        </div>
+      </section>
+    );
+  };
+
+  return (
+    <div className="app-shell">
+      <aside className="control-panel no-print">
+        <div className="panel-title">فرم ثبت هزینه</div>
+        <div className="panel-subtitle">اطلاعات را وارد کنید؛ پیش‌نمایش و خروجی A4 همزمان به‌روزرسانی می‌شود.</div>
+
+        <section>
+          <h3>مشخصات سربرگ فرم اصلی</h3>
+          <label>عنوان فرم<input value={header.title} onChange={e => setHeader({ ...header, title: e.target.value })} /></label>
+          <div className="control-grid">
+            <label>کد سند<input value={header.docCode} onChange={e => setHeader({ ...header, docCode: e.target.value })} /></label>
+            <label>کد سند مرجع<input value={header.serviceCode} onChange={e => setHeader({ ...header, serviceCode: e.target.value })} /></label>
+          </div>
+          <div className="control-grid">
+            <label>تاریخ<JalaliDate value={header.date} onChange={updateMainDate} /></label>
+            <label>تاریخ واریزی<JalaliDate value={header.reviewDate} onChange={v => setHeader({ ...header, reviewDate: v })} /></label>
+          </div>
+        </section>
+
+        <section>
+          <h3>ردیف‌های هزینه</h3>
+          <div className="editor-table">
+            {rows.map((row, i) => <div className="editor-row" key={i}>
+              <b>{i + 1}</b>
+              <JalaliDate value={row.date} onChange={v => updateRow(i, 'date', v)} />
+              <input placeholder="محل مراجعه (بانک / شرکت)" value={row.place} onChange={e => updateRow(i, 'place', e.target.value)} />
+              <select value={row.service} onChange={e => updateRow(i, 'service', e.target.value)}><option value="">نوع خدمات</option>{SERVICES.map(s => <option key={s} value={s}>{s}</option>)}</select>
+              <input placeholder="شماره قرارداد / فاکتور" value={row.invoice} onChange={e => updateRow(i, 'invoice', e.target.value)} />
+              <input className="description-input" placeholder="شرح هزینه" value={row.description} onChange={e => updateRow(i, 'description', e.target.value)} />
+              <input inputMode="numeric" placeholder="مبلغ (ریال)" value={row.amount} onChange={e => updateRow(i, 'amount', e.target.value)} />
+            </div>)}
+          </div>
+        </section>
+
+        <section>
+          <h3>اطلاعات فرم بدون فاکتور</h3>
+          <div className="control-grid">
+            <label>کد فرم<input value={ni.formCode} onChange={e => setNi({ ...ni, formCode: e.target.value })} /></label>
+            <label>کد سند مرجع<input value={ni.referenceCode} onChange={e => setNi({ ...ni, referenceCode: e.target.value })} /></label>
+            <label>تاریخ<JalaliDate value={ni.date} onChange={v => setNi({ ...ni, date: v })} /></label>
+            <label>درخواست کننده<input value={ni.requester} onChange={e => setNi({ ...ni, requester: e.target.value })} /></label>
+            <label>سمت<input value={ni.position} onChange={e => setNi({ ...ni, position: e.target.value })} /></label>
+            <label>واحد سازمانی<input value={ni.organization} onChange={e => setNi({ ...ni, organization: e.target.value })} /></label>
+          </div>
+          <label>دلیل استفاده از کالا / خدمات<input value={ni.reason} onChange={e => setNi({ ...ni, reason: e.target.value })} /></label>
+          <label>اظهار نظر تایید کننده<input value={ni.approverComment} onChange={e => setNi({ ...ni, approverComment: e.target.value })} /></label>
+          <label>توضیحات<input value={ni.notes} onChange={e => setNi({ ...ni, notes: e.target.value })} /></label>
+          <div className="helper">شرح‌هایی که شامل تاکسی، بلیط، ناهار، هتل، سوخت و موارد تعریف‌شده باشند، با مبلغ به فرم بدون فاکتور منتقل می‌شوند. هر فرم ۳ ردیف دارد.</div>
+        </section>
+
+        <section>
+          <h3>امضاها</h3>
+          <div className="control-grid three">
+            <label>تنظیم کننده<input value={sig.requester} onChange={e => setSig({ ...sig, requester: e.target.value })} /></label>
+            <label>تایید کننده<input value={sig.confirmer} onChange={e => setSig({ ...sig, confirmer: e.target.value })} /></label>
+            <label>تصویب کننده<input value={sig.issuer} onChange={e => setSig({ ...sig, issuer: e.target.value })} /></label>
+          </div>
+        </section>
+
+        <div className="action-grid">
+          <button onClick={() => window.print()}>🖨 چاپ همه فرم‌ها</button>
+          <button onClick={exportMain} disabled={busy}>{busy ? 'در حال ساخت…' : '📄 PDF فرم اصلی'}</button>
+          <button onClick={exportNoInvoice} disabled={niBusy || !niPages.length}>{niBusy ? 'در حال ساخت…' : '📄 PDF بدون فاکتور'}</button>
+          <button className="secondary" onClick={reset}>پاک کردن اطلاعات</button>
+        </div>
+      </aside>
+
+      <main className="preview-area">
+        <div className="preview-note no-print">پیش‌نمایش فرم اصلی</div>
+        <section id="main-paper" className="paper main-paper">
+          <div className="form-frame">
+            <header className="main-header">
+              <div className="header-codes">
+                <div>کد سند : <b>{header.docCode}</b></div>
+                <div>کد سند مرجع : <b>{header.serviceCode}</b></div>
+                <div>تاریخ : <b>{header.date}</b></div>
+              </div>
+              <div className="header-title">{header.title}</div>
+              <div className="header-logo"><img src={LOGO_SRC} alt="فاران" /></div>
+            </header>
+            <table className="expense-table">
+              <thead><tr><th>ردیف</th><th>تاریخ</th><th>محل مراجعه<br />(بانک / شرکت)</th><th>نوع خدمات</th><th>شماره قرارداد / فاکتور</th><th>شرح هزینه</th><th>مبلغ هزینه (ریال)</th></tr></thead>
+              <tbody>
+                {rows.map((row, i) => <tr key={i}><td>{i + 1}</td><td>{row.date}</td><td>{row.place}</td><td>{row.service}</td><td>{row.invoice}</td><td className="description-cell">{row.description}</td><td className="amount-cell">{money(row.amount)}</td></tr>)}
+                <tr className="total-row"><td colSpan="2" className="total-date">تاریخ واریزی : {header.reviewDate || '………………'}</td><td colSpan="4" className="total-label">جمع کل هزینه :</td><td>{money(total)}</td></tr>
+              </tbody>
+            </table>
+            <div className="signature-row">
+              <div><b>نام و امضاء</b><span>تنظیم کننده :</span><strong>{sig.requester}</strong></div>
+              <div><b>نام و امضاء</b><span>تایید کننده :</span><strong>{sig.confirmer}</strong></div>
+              <div><b>نام و امضاء</b><span>تصویب کننده :</span><strong>{sig.issuer}</strong></div>
+            </div>
+          </div>
+        </section>
+
+        {niPages.length > 0 && <>
+          <div className="preview-note no-print">پیش‌نمایش فرم‌های هزینه بدون فاکتور</div>
+          <div className="no-invoice-pages">{niPages.map((items, i) => <NoInvoice key={i} items={items} index={i} />)}</div>
+        </>}
+      </main>
+    </div>
+  );
+}
+
+createRoot(document.getElementById('root')).render(<App />);
